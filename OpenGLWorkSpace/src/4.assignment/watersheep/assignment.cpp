@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
 
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -11,6 +12,7 @@
 
 #include <iostream>
 #include <string>
+#include <assignment/texture_loc.h>
 
 #define PI 3.14159265
 
@@ -65,6 +67,8 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void process_input(GLFWwindow *window);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void register_texture(unsigned int * tex, std::string path);
+
+void register_tex_pack(unsigned int * tex, std::string path, int size, const std::string pack[]);
 
 // settings
 const unsigned int SCR_WIDTH = 800;
@@ -125,7 +129,7 @@ void jump_rise()
 	{
 		//difference between current last frame
 		// and frame since pressing space is less than 0.2
-		//then increment camera y position upwards incrementally
+		//then increment camera y position upwards
 		if((last_frame - jump_frame) <= 0.2)
 		{
 			camera_pos.y += 0.1f;
@@ -245,7 +249,8 @@ int main()
 	// load and create a texture 
 	// -------------------------
 	unsigned int tex_wood, tex_street, tex_grass, tex_marble, tex_curtin, tex_sky;
-	unsigned int tex_red_dark, tex_red_bright, tex_red, tex_green, tex_blue;
+	unsigned int tex_red_dark, tex_red_bright, tex_red, tex_green, tex_blue, sven_body;
+	unsigned int sven_tex[SVEN_SIZE];
 
 	register_texture(&tex_wood,"resources/textures/wood2.jpg");
 	register_texture(&tex_street,"resources/textures/street.png");
@@ -258,6 +263,11 @@ int main()
 	register_texture(&tex_red,"resources/textures/red.jpg");
 	register_texture(&tex_green,"resources/textures/green.jpg");
 	register_texture(&tex_blue,"resources/textures/blue.jpg");
+	// register_texture(&sven_body,"resources/sven_textures/" + sven_files[6]);
+
+	register_tex_pack(sven_tex,"resources/sven_textures/", SVEN_SIZE, sven_files);
+
+
 
 	// tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
 	// -------------------------------------------------------------------------------------------
@@ -279,8 +289,6 @@ int main()
 		float currentFrame = glfwGetTime();
 		delta_time = currentFrame - last_frame;
 		last_frame = currentFrame;
-
-		std::cout << (last_frame - jump_frame) << std::endl;
 
 		//update delay countdown
 		update_delay();
@@ -424,12 +432,48 @@ int main()
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
 
-		//sven the wolf
+		//** water sheep **//
+		glm::vec3 sheep_scales[] = {
+			glm::vec3( 0.35f,  0.25f,  0.55f),	//body
+			glm::vec3( 0.2f,  0.2f,  0.2f),//head
+			glm::vec3( 0.1f,  0.1f,  0.1f),	//right front leg
+			glm::vec3( 0.1f,  0.1f,  0.1f),//left front leg
+			glm::vec3( 0.1f,  0.1f,  0.1f),	//right back leg
+			glm::vec3( 0.1f,  0.1f,  0.1f),	//left back leg
+		};
+		glm::vec3 sheep_positions[] = {
+			glm::vec3( 0.0f,  0.5f,  4.0f),		//1.body
+			glm::vec3( 0.0f, 0.65f,  3.75f),	//2.head
+			glm::vec3( 0.08f, 0.328f,  3.78f),	//3. r front leg
+			glm::vec3(-0.08f, 0.328f, 3.78f),	//4. l front leg
+			glm::vec3( 0.08f, 0.328f,  4.2f),	//5. r back leg
+			glm::vec3( -0.08f, 0.328f,  4.2f),	//6. l back leg
+		};
+
+		glBindVertexArray(VAO_box);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, tex_wood);
+
+		for(int tab = 0; tab < 6; tab++)
+		{	
+			model = glm::mat4();
+			model = glm::translate(model, sheep_positions[tab]);
+			model = glm::translate(model, glm::vec3(0.0f, 0.4f, 0.0f));
+			model = glm::scale(model, sheep_scales[tab]);
+			// model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+
+			ourShader.setMat4("model", model);
+
+			glDrawArrays(GL_TRIANGLES, 0, 36);
+		}
+
+		//** sven the wolf **//
 		glm::vec3 sven_scales[] = {
 			glm::vec3( 0.2f,  0.18f,  0.15f),	//head
 			glm::vec3( 0.3f,  0.25f,  0.2f),//collar
 			glm::vec3( 0.2f,  0.2f,  0.4f),	//body
-			glm::vec3( 0.1f,  0.1f,  0.1f),//mouth
+			glm::vec3( 0.1f,  0.06f,  0.1f),//mouth
 			glm::vec3( 0.07f,  0.09f,  0.02f),	//right ear
 			glm::vec3( 0.07f,  0.09f,  0.02f),	//left ear
 			glm::vec3( 0.05f,  0.06f,  0.2f),	//tail
@@ -437,36 +481,56 @@ int main()
 			glm::vec3( 0.08f,  0.3f,  0.08f),	//left front leg
 			glm::vec3( 0.08f,  0.3f,  0.08f),	//right back leg
 			glm::vec3( 0.08f,  0.3f,  0.08f),	//left back leg
+			glm::vec3( 0.1f,  0.02f,  0.1f),//jaw
+			glm::vec3( 0.02f,  0.02f,  0.02f),//nose
+			glm::vec3( 0.05f,  0.03f,  0.0f),//left eye
+			glm::vec3( 0.05f,  0.03f,  0.0f),//right eye
 		};
 
 		glm::vec3 sven_positions[] = {
 			glm::vec3( 0.0f,  0.82f,  0.75f),		//1.head
 			glm::vec3( 0.0f, 0.8f,  0.9f),	//2.collar
 			glm::vec3( 0.0f, 0.8f,  1.2f),	//3.body
-		 	glm::vec3(0.0f, 0.8f, 0.63f),	//4.mouth
-		 	glm::vec3( 0.065f, 0.92f, 0.75f),	//5.right ear
-		 	glm::vec3( -0.065f, 0.92f, 0.75f),	//6.left ear
-		 	glm::vec3( -0.0f, 0.87f, 1.45f),	//7.tail
+		 	glm::vec3(0.0f, 0.78f, 0.63f),	//4.mouth
+		 	glm::vec3( 0.064f, 0.92f, 0.75f),	//5.right ear
+		 	glm::vec3( -0.064f, 0.92f, 0.75f),	//6.left ear
+		 	glm::vec3( -0.0f, 0.86f, 1.45f),	//7.tail
 		 	glm::vec3( 0.05f, 0.6f, 0.92f),	//8.right front leg
 		 	glm::vec3( -0.05f, 0.6f, 0.92f),	//9.left front leg
 		 	glm::vec3( 0.05f, 0.6f, 1.32f),	//10.right back leg
 		 	glm::vec3( -0.05f, 0.6f, 1.32f),	//11.left back leg
+		 	glm::vec3(0.0f, 0.74f, 0.625f),	//12. jaw
+		 	glm::vec3(0.0f, 0.81f, 0.58f),	//13. nose
+		 	glm::vec3(-0.05f, 0.825f, 0.67f),	//14. left_eye
+		 	glm::vec3(0.05f, 0.825f, 0.67f),	//15. right_eye
 		};
 
 		glBindVertexArray(VAO_box);
-
 		// glActiveTexture(GL_TEXTURE0);
-		// glBindTexture(GL_TEXTURE_2D, tex_wood);
 
-		for(int tab = 0; tab < 11; tab++)
+		for(int tab = 0; tab < SVEN_SIZE; tab++)
 		{	
-			//translate first then scale or rotate
-			model = glm::mat4();
-			model = glm::translate(model, sven_positions[tab]);
-			model = glm::translate(model, glm::vec3(-2.0f, -0.5f, -1.2f));
-			model = glm::scale(model, sven_scales[tab]);
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, sven_tex[tab]);
 
-			ourShader.setMat4("model", model);
+			// std::cout << tab << std::endl;
+			//translate first then scale or rotate
+			glm::mat4 sven = glm::mat4();
+			sven = glm::mat4();
+			sven = glm::translate(sven, sven_positions[tab]);
+			sven = glm::translate(sven, glm::vec3(-2.0f, -0.5f, -1.2f));
+			sven = glm::scale(sven, sven_scales[tab]);
+
+			if(tab == 13)
+			{
+				sven = glm::rotate(sven, glm::radians(90.0f), glm::vec3(0.0, 0.0, 1.0));
+			}
+			else if(tab == 14)
+			{
+				sven = glm::rotate(sven, glm::radians(-90.0f), glm::vec3(0.0, 0.0, 1.0));	
+			}
+
+			ourShader.setMat4("model", sven);
 
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
@@ -679,6 +743,7 @@ void register_texture(unsigned int * tex, std::string path)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
+
 	float borderColor [] = {1.0f, 1.0f, 1.0f, 1.0f};
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 	// set texture filtering parameters
@@ -698,4 +763,40 @@ void register_texture(unsigned int * tex, std::string path)
 		std::cout << "Failed to load texture" << std::endl;
 	}
 	stbi_image_free(data);
+}
+
+void register_tex_pack(unsigned int * tex, std::string path, int size, const std::string pack[])
+{
+	int i;
+
+	for(i = 0; i < size; i++)
+	{
+		// std::cout << pack[i] << std::endl;
+		glGenTextures(1, &tex[i]);
+		glBindTexture(GL_TEXTURE_2D, tex[i]);
+		// set the texture wrapping parameters
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
+		float borderColor [] = {1.0f, 1.0f, 1.0f, 1.0f};
+		glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+		// set texture filtering parameters
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		// load image, create texture and generate mipmaps
+		int width, height, nrChannels;
+	
+		stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
+		unsigned char *data = stbi_load(FileSystem::getPath(path + pack[i]).c_str(), &width, &height, &nrChannels, 0);
+		if (data)
+		{
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+			glGenerateMipmap(GL_TEXTURE_2D);
+		}
+		else
+		{
+			std::cout << "Failed to load texture" << std::endl;
+		}
+		stbi_image_free(data);
+	}
 }
