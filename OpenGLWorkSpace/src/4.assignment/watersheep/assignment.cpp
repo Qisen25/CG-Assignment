@@ -249,8 +249,8 @@ int main()
 	// load and create a texture 
 	// -------------------------
 	unsigned int tex_wood, tex_street, tex_grass, tex_marble, tex_curtin, tex_sky;
-	unsigned int tex_red_dark, tex_red_bright, tex_red, tex_green, tex_blue, sven_body;
-	unsigned int sven_tex[SVEN_SIZE];
+	unsigned int tex_red_dark, tex_red_bright, tex_red, tex_green, tex_blue;
+	unsigned int sven_tex[SVEN_SIZE], sheep_tex[SHEEP_SIZE];
 
 	register_texture(&tex_wood,"resources/textures/wood2.jpg");
 	register_texture(&tex_street,"resources/textures/street.png");
@@ -266,6 +266,7 @@ int main()
 	// register_texture(&sven_body,"resources/sven_textures/" + sven_files[6]);
 
 	register_tex_pack(sven_tex,"resources/sven_textures/", SVEN_SIZE, sven_files);
+    register_tex_pack(sheep_tex,"resources/sheep_textures/", SHEEP_SIZE, sheep_files);
 
 
 
@@ -435,35 +436,63 @@ int main()
 		//** water sheep **//
 		glm::vec3 sheep_scales[] = {
 			glm::vec3( 0.35f,  0.25f,  0.55f),	//body
-			glm::vec3( 0.2f,  0.2f,  0.2f),//head
-			glm::vec3( 0.1f,  0.1f,  0.1f),	//right front leg
-			glm::vec3( 0.1f,  0.1f,  0.1f),//left front leg
-			glm::vec3( 0.1f,  0.1f,  0.1f),	//right back leg
-			glm::vec3( 0.1f,  0.1f,  0.1f),	//left back leg
+			glm::vec3( 0.2f,  0.2f,  0.2f),//wool head
+            glm::vec3( 0.16f,  0.16f,  0.02f),//head face
+            glm::vec3( 0.16f,  0.16f,  0.0f),//face
+			glm::vec3( 0.14f,  0.14f,  0.14f),	//right front leg
+			glm::vec3( 0.14f,  0.14f,  0.14f),//left front leg
+			glm::vec3( 0.14f,  0.14f,  0.14f),	//right back leg
+			glm::vec3( 0.14f,  0.14f,  0.14f),	//left back leg
+            glm::vec3( 0.1f,  0.2f,  0.1f),  //lower leg
 		};
 		glm::vec3 sheep_positions[] = {
 			glm::vec3( 0.0f,  0.5f,  4.0f),		//1.body
-			glm::vec3( 0.0f, 0.65f,  3.75f),	//2.head
-			glm::vec3( 0.08f, 0.328f,  3.78f),	//3. r front leg
-			glm::vec3(-0.08f, 0.328f, 3.78f),	//4. l front leg
-			glm::vec3( 0.08f, 0.328f,  4.2f),	//5. r back leg
-			glm::vec3( -0.08f, 0.328f,  4.2f),	//6. l back leg
+			glm::vec3( 0.0f, 0.65f,  3.75f),	//2.wool head
+            glm::vec3( 0.0f, 0.65f,  3.64f),    //3.head face
+            glm::vec3( 0.0f, 0.65f,  3.6297f),    //4.face
+			glm::vec3( 0.08f, 0.328f,  3.85f),	//5. r front leg
+			glm::vec3(-0.08f, 0.328f, 3.85f),	//6. l front leg
+			glm::vec3( 0.08f, 0.328f,  4.18f),	//7. r back leg
+			glm::vec3( -0.08f, 0.328f,  4.18f),	//8. l back leg
+            glm::vec3( 0.08f, 0.25f,  3.85f),  //9. r front low leg
+            glm::vec3( -0.08f, 0.25f,  3.85f),  //10. l front low leg
+            glm::vec3( 0.08f, 0.25f,  4.18f),  //11. r back low leg
+            glm::vec3( -0.08f, 0.25f,  4.18f), //12. l back low leg
+
 		};
 
 		glBindVertexArray(VAO_box);
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex_wood);
-
-		for(int tab = 0; tab < 6; tab++)
+		for(int tab = 0; tab < 12; tab++)
 		{	
-			model = glm::mat4();
-			model = glm::translate(model, sheep_positions[tab]);
-			model = glm::translate(model, glm::vec3(0.0f, 0.4f, 0.0f));
-			model = glm::scale(model, sheep_scales[tab]);
+			glm::mat4 sheep = glm::mat4();
+
+            //opengl column vector, must do opposite order of row vector
+            sheep = glm::translate(sheep, glm::vec3(2.0f, -0.15f, -6.5f));
+            sheep = glm::translate(sheep, glm::vec3(0.08f, 0.25f, 4.18f));//put back
+            sheep= glm::rotate(sheep, glm::radians(90.0f), glm::vec3(0.0, 1.0, 0.0));
+            sheep = glm::translate(sheep, glm::vec3(0.08f, -0.25f, -4.18f));//move to origins
+			sheep = glm::translate(sheep, sheep_positions[tab]);//start
+			// sheep = glm::translate(sheep, glm::vec3(0.08f, -0.25f, -4.18f));
+            //index positions less than 8 are different models
+            if(tab < 9)
+            {
+                 sheep = glm::scale(sheep, sheep_scales[tab]);
+                 glActiveTexture(GL_TEXTURE0);
+                 glBindTexture(GL_TEXTURE_2D, sheep_tex[tab]);
+            }
+            else //index above 7 then reuse lower leg model
+            {
+                sheep = glm::scale(sheep, sheep_scales[8]); 
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, sheep_tex[8]);  
+            }
+
+            
+
 			// model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
 
-			ourShader.setMat4("model", model);
+			ourShader.setMat4("model", sheep);
 
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
@@ -501,8 +530,8 @@ int main()
 		 	glm::vec3( -0.05f, 0.6f, 1.32f),	//11.left back leg
 		 	glm::vec3(0.0f, 0.74f, 0.625f),	//12. jaw
 		 	glm::vec3(0.0f, 0.81f, 0.58f),	//13. nose
-		 	glm::vec3(-0.05f, 0.825f, 0.67f),	//14. left_eye
-		 	glm::vec3(0.05f, 0.825f, 0.67f),	//15. right_eye
+		 	glm::vec3(-0.05f, 0.825f, 0.674f),	//14. left_eye
+		 	glm::vec3(0.05f, 0.825f, 0.674f),	//15. right_eye
 		};
 
 		glBindVertexArray(VAO_box);
@@ -765,6 +794,7 @@ void register_texture(unsigned int * tex, std::string path)
 	stbi_image_free(data);
 }
 
+//function to register bunch of textures from an array containing file names
 void register_tex_pack(unsigned int * tex, std::string path, int size, const std::string pack[])
 {
 	int i;
