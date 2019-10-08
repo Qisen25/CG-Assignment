@@ -78,7 +78,10 @@ const unsigned int SCR_HEIGHT = 800;
 glm::vec3 camera_pos   = glm::vec3(0.0f, 0.9f,  3.0f);
 glm::vec3 camera_front = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 camera_up    = glm::vec3(0.0f, 1.0f,  0.0f);
+glm::vec3 last_pos;
+glm::mat4 prev_view;
 
+//mouse settings
 bool firstMouse = true;
 float yaw   = -90.0f;	// yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right so we initially rotate a bit to the left.
 float pitch =  0.0f;
@@ -98,6 +101,9 @@ bool descend = false;
 bool BUTTON_PRESSED = false;
 int BUTTON_DELAY = 0;
 bool BUTTON_CLOSE_ENOUGH = false;
+bool PICKUP_LIGHT = false;
+bool LIGHT_IN_HAND = false;
+bool LIGHT_TOUCHED =false;
 
 bool SHOW_COORDINATE = false;
 int SHOW_DELAY = 0;
@@ -202,7 +208,7 @@ int main()
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetCursorPosCallback(window, mouse_callback);
-	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+	// glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
 	// tell GLFW to capture our mouse
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -227,17 +233,16 @@ int main()
 	// set up vertex data (and buffer(s)) and configure vertex attributes
 	// ------------------------------------------------------------------
 
-	unsigned int VBO_box, VAO_box;
+	unsigned int VBO_box[2], VAO_box[2];
 
-	glGenVertexArrays(1, &VAO_box);
-	glGenBuffers(1, &VBO_box);
+	glGenVertexArrays(2, VAO_box);
+	glGenBuffers(2, VBO_box);
 
-	glBindVertexArray(VAO_box);
+    //cube with sides texture rotated to different position
+	glBindVertexArray(VAO_box[0]);
 
-	glBindBuffer(GL_ARRAY_BUFFER, VBO_box);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO_box[0]);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(box), box, GL_STATIC_DRAW);
-
-
 	// position attribute
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
@@ -245,12 +250,24 @@ int main()
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
 
+    //cube with sides textures that exactly the same
+    glBindVertexArray(VAO_box[1]);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO_box[1]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(same_side_box), same_side_box, GL_STATIC_DRAW);
+    // position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // texture coord attribute
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
 
 	// load and create a texture 
 	// -------------------------
 	unsigned int tex_wood, tex_street, tex_grass, tex_marble, tex_curtin, tex_sky;
 	unsigned int tex_red_dark, tex_red_bright, tex_red, tex_green, tex_blue;
-	unsigned int sven_tex[SVEN_SIZE], sheep_tex[SHEEP_SIZE];
+	unsigned int sven_tex[SVEN_SIZE], sheep_tex[SHEEP_SIZE], light_tool_tex[2];
 
 	register_texture(&tex_wood,"resources/textures/wood2.jpg");
 	register_texture(&tex_street,"resources/textures/street.png");
@@ -267,7 +284,7 @@ int main()
 
 	register_tex_pack(sven_tex,"resources/sven_textures/", SVEN_SIZE, sven_files);
     register_tex_pack(sheep_tex,"resources/sheep_textures/", SHEEP_SIZE, sheep_files);
-
+    register_tex_pack(light_tool_tex,"resources/lightTool_textures/", 2, light_tool);
 
 
 	// tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
@@ -328,7 +345,7 @@ int main()
 		//------------------------------------------------------------------------------------------
 		
 		//Sky
-		glBindVertexArray(VAO_box);//This does not have to binded every time after first call, but just for consistency.
+		glBindVertexArray(VAO_box[0]);//This does not have to binded every time after first call, but just for consistency.
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, tex_sky);
@@ -351,7 +368,7 @@ int main()
 				glm::vec3( 0.02f,  0.02f,  100.0f),	//Z
 			};
 
-			glBindVertexArray(VAO_box);
+			glBindVertexArray(VAO_box[0]);
 
 			glActiveTexture(GL_TEXTURE0);
 
@@ -372,7 +389,7 @@ int main()
 
 
 		//Street
-		glBindVertexArray(VAO_box);
+		glBindVertexArray(VAO_box[0]);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, tex_street);
@@ -386,7 +403,7 @@ int main()
 
 
 		//Grass
-		glBindVertexArray(VAO_box);
+		glBindVertexArray(VAO_box[0]);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, tex_grass);
@@ -416,7 +433,7 @@ int main()
 			glm::vec3( 0.45f, 0.0f, -0.45f),	//far right
 		};
 
-		glBindVertexArray(VAO_box);
+		glBindVertexArray(VAO_box[0]);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, tex_wood);
@@ -433,69 +450,76 @@ int main()
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
 
-		//** water sheep **//
-		glm::vec3 sheep_scales[] = {
-			glm::vec3( 0.35f,  0.25f,  0.55f),	//body
-			glm::vec3( 0.2f,  0.2f,  0.2f),//wool head
-            glm::vec3( 0.16f,  0.16f,  0.02f),//head face
-            glm::vec3( 0.16f,  0.16f,  0.0f),//face
-			glm::vec3( 0.14f,  0.14f,  0.14f),	//right front leg
-			glm::vec3( 0.14f,  0.14f,  0.14f),//left front leg
-			glm::vec3( 0.14f,  0.14f,  0.14f),	//right back leg
-			glm::vec3( 0.14f,  0.14f,  0.14f),	//left back leg
-            glm::vec3( 0.1f,  0.2f,  0.1f),  //lower leg
-		};
-		glm::vec3 sheep_positions[] = {
-			glm::vec3( 0.0f,  0.5f,  4.0f),		//1.body
-			glm::vec3( 0.0f, 0.65f,  3.75f),	//2.wool head
-            glm::vec3( 0.0f, 0.65f,  3.64f),    //3.head face
-            glm::vec3( 0.0f, 0.65f,  3.6297f),    //4.face
-			glm::vec3( 0.08f, 0.328f,  3.85f),	//5. r front leg
-			glm::vec3(-0.08f, 0.328f, 3.85f),	//6. l front leg
-			glm::vec3( 0.08f, 0.328f,  4.18f),	//7. r back leg
-			glm::vec3( -0.08f, 0.328f,  4.18f),	//8. l back leg
-            glm::vec3( 0.08f, 0.25f,  3.85f),  //9. r front low leg
-            glm::vec3( -0.08f, 0.25f,  3.85f),  //10. l front low leg
-            glm::vec3( 0.08f, 0.25f,  4.18f),  //11. r back low leg
-            glm::vec3( -0.08f, 0.25f,  4.18f), //12. l back low leg
+        //light source
+        glm::vec3 light_tool_scales[] = {
+            glm::vec3( 0.03f,  0.09f,  0.03f), //hilt
+            glm::vec3( 0.025f,  0.14f,  0.025f),// source
+        };
 
-		};
+        glm::vec3 light_tool_positions[] = {
+            glm::vec3( 0.0f,  0.0f,  0.0f),     //hilt
+            glm::vec3(0.0f, 0.11f,  0.0f),    //source
+        };
 
-		glBindVertexArray(VAO_box);
+        // glm::vec3 light_tool_positions[] = {
+        //     glm::vec3( camera_pos.x,  0.0f + (camera_pos.y),  camera_pos.z),     //hilt
+        //     glm::vec3(camera_pos.x, 0.11f + (camera_pos.y),  camera_pos.z),    //source
+        // };
 
-		for(int tab = 0; tab < 12; tab++)
-		{	
-			glm::mat4 sheep = glm::mat4();
+        glBindVertexArray(VAO_box[1]);
 
-            //opengl column vector, must do opposite order of row vector
-            sheep = glm::translate(sheep, glm::vec3(2.0f, -0.15f, -6.5f));
-            sheep = glm::translate(sheep, glm::vec3(0.08f, 0.25f, 4.18f));//put back
-            sheep= glm::rotate(sheep, glm::radians(90.0f), glm::vec3(0.0, 1.0, 0.0));
-            sheep = glm::translate(sheep, glm::vec3(0.08f, -0.25f, -4.18f));//move to origins
-			sheep = glm::translate(sheep, sheep_positions[tab]);//start
-			// sheep = glm::translate(sheep, glm::vec3(0.08f, -0.25f, -4.18f));
-            //index positions less than 8 are different models
-            if(tab < 9)
+        for(int tab = 0; tab < 2; tab++)
+        {   
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, light_tool_tex[tab]);
+            glm::mat4 lightSaber = glm::mat4();
+            
+            // std::cout << PICKUP_LIGHT << std::endl;
+            if(PICKUP_LIGHT == false)
             {
-                 sheep = glm::scale(sheep, sheep_scales[tab]);
-                 glActiveTexture(GL_TEXTURE0);
-                 glBindTexture(GL_TEXTURE_2D, sheep_tex[tab]);
+                if(LIGHT_TOUCHED == false)
+                {
+                    lightSaber = glm::translate(lightSaber, glm::vec3(0.0f, 0.1f, 3.0f));    
+                }
+                else if(LIGHT_TOUCHED && LIGHT_IN_HAND)
+                {
+                    lightSaber = glm::inverse(prev_view) * lightSaber;
+                    lightSaber = glm::translate(lightSaber, glm::vec3(-0.1f, 0.1f, 3.0f)); 
+                    lightSaber = glm::translate(lightSaber, glm::vec3(last_pos.x, 0.9f, last_pos.z)); 
+                }
+                else
+                {
+                    lightSaber = glm::translate(lightSaber, glm::vec3(last_pos.x, 0.9f, last_pos.z));     
+                }
             }
-            else //index above 7 then reuse lower leg model
+            else
             {
-                sheep = glm::scale(sheep, sheep_scales[8]); 
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, sheep_tex[8]);  
+                // std::cout << LIGHT_IN_HAND << std::endl;
+                prev_view = glm::inverse(view);
+                lightSaber = glm::translate(lightSaber, glm::vec3(0.1f, -0.1f, -0.3f));
+                lightSaber =  prev_view * lightSaber; 
             }
+
+                       
+            // lightSaber = glm::translate(lightSaber, glm::vec3(camera_pos.x, camera_pos.y, camera_pos.z));
+            
+            // lightSaber = glm::translate(lightSaber, glm::vec3(camera_front.x, 
+            //                                     camera_front.y, camera_front.z));
+            
+            // lightSaber = glm::rotate(lightSaber, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)); 
+            // lightSaber = glm::rotate(lightSaber, (pitch/50.0f), glm::vec3(1.0f, 0.0f, 1.0f));
+
+        
+
+            lightSaber = glm::translate(lightSaber, light_tool_positions[tab]);
+
+            lightSaber = glm::scale(lightSaber, light_tool_scales[tab]);
 
             
+            ourShader.setMat4("model", lightSaber);
 
-			// model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-
-			ourShader.setMat4("model", sheep);
-
-			glDrawArrays(GL_TRIANGLES, 0, 36);
-		}
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
 
 		//** sven the wolf **//
 		glm::vec3 sven_scales[] = {
@@ -534,8 +558,7 @@ int main()
 		 	glm::vec3(0.05f, 0.825f, 0.674f),	//15. right_eye
 		};
 
-		glBindVertexArray(VAO_box);
-		// glActiveTexture(GL_TEXTURE0);
+		glBindVertexArray(VAO_box[0]);
 
 		for(int tab = 0; tab < SVEN_SIZE; tab++)
 		{	
@@ -564,6 +587,70 @@ int main()
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
 
+        //** water sheep **//
+        glm::vec3 sheep_scales[] = {
+            glm::vec3( 0.35f,  0.25f,  0.55f),  //body
+            glm::vec3( 0.2f,  0.2f,  0.2f),//wool head
+            glm::vec3( 0.16f,  0.16f,  0.02f),//head face
+            glm::vec3( 0.16f,  0.16f,  0.0f),//face
+            glm::vec3( 0.14f,  0.14f,  0.14f),  //right front leg
+            glm::vec3( 0.14f,  0.14f,  0.14f),//left front leg
+            glm::vec3( 0.14f,  0.14f,  0.14f),  //right back leg
+            glm::vec3( 0.14f,  0.14f,  0.14f),  //left back leg
+            glm::vec3( 0.1f,  0.2f,  0.1f),  //lower leg
+        };
+        glm::vec3 sheep_positions[] = {
+            glm::vec3( 0.0f,  0.5f,  4.0f),     //1.body
+            glm::vec3( 0.0f, 0.65f,  3.75f),    //2.wool head
+            glm::vec3( 0.0f, 0.65f,  3.64f),    //3.head face
+            glm::vec3( 0.0f, 0.65f,  3.6297f),    //4.face
+            glm::vec3( 0.08f, 0.328f,  3.85f),  //5. r front leg
+            glm::vec3(-0.08f, 0.328f, 3.85f),   //6. l front leg
+            glm::vec3( 0.08f, 0.328f,  4.18f),  //7. r back leg
+            glm::vec3( -0.08f, 0.328f,  4.18f), //8. l back leg
+            glm::vec3( 0.08f, 0.25f,  3.85f),  //9. r front low leg
+            glm::vec3( -0.08f, 0.25f,  3.85f),  //10. l front low leg
+            glm::vec3( 0.08f, 0.25f,  4.18f),  //11. r back low leg
+            glm::vec3( -0.08f, 0.25f,  4.18f), //12. l back low leg
+
+        };
+
+        glBindVertexArray(VAO_box[0]);
+
+        for(int tab = 0; tab < 12; tab++)
+        {   
+            glm::mat4 sheep = glm::mat4();
+
+            //opengl column vector, must do opposite order of row vector
+            sheep = glm::translate(sheep, glm::vec3(2.0f, -0.15f, -6.5f));
+            sheep = glm::translate(sheep, glm::vec3(0.08f, 0.25f, 4.18f));//put back
+            sheep= glm::rotate(sheep, glm::radians(90.0f), glm::vec3(0.0, 1.0, 0.0));
+            sheep = glm::translate(sheep, glm::vec3(0.08f, -0.25f, -4.18f));//move to origins
+            sheep = glm::translate(sheep, sheep_positions[tab]);//start
+            // sheep = glm::translate(sheep, glm::vec3(0.08f, -0.25f, -4.18f));
+            //index positions less than 8 are different models
+            if(tab < 9)
+            {
+                 sheep = glm::scale(sheep, sheep_scales[tab]);
+                 glActiveTexture(GL_TEXTURE0);
+                 glBindTexture(GL_TEXTURE_2D, sheep_tex[tab]);
+            }
+            else //index above 7 then reuse lower leg model
+            {
+                sheep = glm::scale(sheep, sheep_scales[8]); 
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, sheep_tex[8]);  
+            }
+
+            
+
+            // model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+
+            ourShader.setMat4("model", sheep);
+
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
+
 
 		//Button on table (1 big box & 1 small box as button)
 		glm::vec3 button_scales[] = {
@@ -582,7 +669,7 @@ int main()
 		glm::vec3 button_final_location = glm::vec3(0.0f, 0.56f, 0.25f);
 		toggle_button_distance(button_final_location); 
 
-		glBindVertexArray(VAO_box);
+		glBindVertexArray(VAO_box[0]);
 		
 		for(int tab = 0; tab < 2; tab++)
 		{	
@@ -617,7 +704,7 @@ int main()
 
 
 		//Curtin Logo
-		glBindVertexArray(VAO_box);
+		glBindVertexArray(VAO_box[0]);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, tex_curtin);
@@ -651,8 +738,8 @@ int main()
 
 	// optional: de-allocate all resources once they've outlived their purpose:
 	// ------------------------------------------------------------------------
-	glDeleteVertexArrays(1, &VAO_box);
-	glDeleteBuffers(1, &VBO_box);
+	glDeleteVertexArrays(2, VAO_box);
+	glDeleteBuffers(2, VBO_box);
 
 	// glfw: terminate, clearing all previously allocated GLFW resources.
 	// ------------------------------------------------------------------
@@ -711,6 +798,22 @@ void process_input(GLFWwindow *window)
 		else
 			SHOW_COORDINATE = false;
 	}
+
+    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS && SHOW_DELAY == 0)
+    {
+        SHOW_DELAY = 20;
+        LIGHT_TOUCHED = true;
+        if(PICKUP_LIGHT == false)
+        {
+            PICKUP_LIGHT = true;
+            LIGHT_IN_HAND = true;
+        }
+        else
+        {
+           PICKUP_LIGHT = false;
+           last_pos =  camera_pos + camera_front;
+        }
+    }
 
 }
 
