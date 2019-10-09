@@ -69,10 +69,16 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void register_texture(unsigned int * tex, std::string path);
 
 void register_tex_pack(unsigned int * tex, std::string path, int size, const std::string pack[]);
+void draw_models(Shader ourShader, glm::mat4 view);
 
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 800;
+
+//texture packs for models
+unsigned int sven_tex[SVEN_SIZE], sheep_tex[SHEEP_SIZE], light_tool_tex[2];
+//vertex buffers allow global access for ease
+unsigned int VBO_box[2], VAO_box[2];
 
 // camera
 glm::vec3 camera_pos   = glm::vec3(0.0f, 0.9f,  3.0f);
@@ -101,12 +107,18 @@ bool descend = false;
 bool BUTTON_PRESSED = false;
 int BUTTON_DELAY = 0;
 bool BUTTON_CLOSE_ENOUGH = false;
+
+//for collision detect
 bool PICKUP_LIGHT = false;
-bool LIGHT_IN_HAND = false;
 bool LIGHT_TOUCHED =false;
+bool TORCH_NEAR = false;
+bool SVEN_NEAR = false;
+bool SVEN_TOUCHED = false;
+bool PICKUP_SVEN = false;
 
 bool SHOW_COORDINATE = false;
 int SHOW_DELAY = 0;
+bool isPerspec = true;
 
 //Animation Variables
 float curtin_rotate_y = 0.0;
@@ -181,6 +193,17 @@ void toggle_button_distance(glm::vec3 button_pos)
 		BUTTON_CLOSE_ENOUGH = false;
 }
 
+bool obj_is_near(glm::vec3 obj_pos, float nearDist)
+{
+    bool isNear = false;
+    if(glm::length(camera_pos - obj_pos) <= nearDist)
+        isNear = true;
+    // else
+    //     isNear = false;
+
+    return isNear;
+}
+
 
 
 int main()
@@ -233,7 +256,7 @@ int main()
 	// set up vertex data (and buffer(s)) and configure vertex attributes
 	// ------------------------------------------------------------------
 
-	unsigned int VBO_box[2], VAO_box[2];
+	
 
 	glGenVertexArrays(2, VAO_box);
 	glGenBuffers(2, VBO_box);
@@ -267,7 +290,6 @@ int main()
 	// -------------------------
 	unsigned int tex_wood, tex_street, tex_grass, tex_marble, tex_curtin, tex_sky;
 	unsigned int tex_red_dark, tex_red_bright, tex_red, tex_green, tex_blue;
-	unsigned int sven_tex[SVEN_SIZE], sheep_tex[SHEEP_SIZE], light_tool_tex[2];
 
 	register_texture(&tex_wood,"resources/textures/wood2.jpg");
 	register_texture(&tex_street,"resources/textures/street.png");
@@ -293,9 +315,6 @@ int main()
 
 	// pass projection matrix to shader (as projection matrix rarely changes there's no need to do this per frame)
 	// -----------------------------------------------------------------------------------------------------------
-	glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 300.0f);
-	ourShader.setMat4("projection", projection);
-
 
 	// render loop
 	// -----------
@@ -310,13 +329,13 @@ int main()
 
 		//update delay countdown
 		update_delay();
-		jump_button_delay();
+		jump_button_delay();//countdown jump delay since first jump
 		
 		// input
 		// -----
 		process_input(window);
-		jump_rise();
-		down_gravity();
+		jump_rise();//method to make jump look more realistic by small increments of y
+		down_gravity();//method to keep player camera grounded(prevent flying)
 
 		// render
 		// ------
@@ -327,10 +346,22 @@ int main()
 		// activate shader
 		ourShader.use();
 
+       //projection transformation
+        glm::mat4 projection; 
+        if(isPerspec)
+        {
+            projection= glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 300.0f);
+        }
+        else
+        {
+            projection = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -10.0f, 200.0f);
+        }
+        ourShader.setMat4("projection", projection);
 
 		// camera/view transformation
 		glm::mat4 view = glm::lookAt(camera_pos, camera_pos + camera_front, camera_up);
 		ourShader.setMat4("view", view);
+
 
 		//declare transformation matrix
 		glm::mat4 model = glm::mat4();
@@ -450,207 +481,7 @@ int main()
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
 
-        //light source
-        glm::vec3 light_tool_scales[] = {
-            glm::vec3( 0.03f,  0.09f,  0.03f), //hilt
-            glm::vec3( 0.025f,  0.14f,  0.025f),// source
-        };
-
-        glm::vec3 light_tool_positions[] = {
-            glm::vec3( 0.0f,  0.0f,  0.0f),     //hilt
-            glm::vec3(0.0f, 0.11f,  0.0f),    //source
-        };
-
-        // glm::vec3 light_tool_positions[] = {
-        //     glm::vec3( camera_pos.x,  0.0f + (camera_pos.y),  camera_pos.z),     //hilt
-        //     glm::vec3(camera_pos.x, 0.11f + (camera_pos.y),  camera_pos.z),    //source
-        // };
-
-        glBindVertexArray(VAO_box[1]);
-
-        for(int tab = 0; tab < 2; tab++)
-        {   
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, light_tool_tex[tab]);
-            glm::mat4 lightSaber = glm::mat4();
-            
-            // std::cout << PICKUP_LIGHT << std::endl;
-            if(PICKUP_LIGHT == false)
-            {
-                if(LIGHT_TOUCHED == false)
-                {
-                    lightSaber = glm::translate(lightSaber, glm::vec3(0.0f, 0.1f, 3.0f));    
-                }
-                else if(LIGHT_TOUCHED && LIGHT_IN_HAND)
-                {
-                    lightSaber = glm::inverse(prev_view) * lightSaber;
-                    lightSaber = glm::translate(lightSaber, glm::vec3(-0.1f, 0.1f, 3.0f)); 
-                    lightSaber = glm::translate(lightSaber, glm::vec3(last_pos.x, 0.9f, last_pos.z)); 
-                }
-                else
-                {
-                    lightSaber = glm::translate(lightSaber, glm::vec3(last_pos.x, 0.9f, last_pos.z));     
-                }
-            }
-            else
-            {
-                // std::cout << LIGHT_IN_HAND << std::endl;
-                prev_view = glm::inverse(view);
-                lightSaber = glm::translate(lightSaber, glm::vec3(0.1f, -0.1f, -0.3f));
-                lightSaber =  prev_view * lightSaber; 
-            }
-
-                       
-            // lightSaber = glm::translate(lightSaber, glm::vec3(camera_pos.x, camera_pos.y, camera_pos.z));
-            
-            // lightSaber = glm::translate(lightSaber, glm::vec3(camera_front.x, 
-            //                                     camera_front.y, camera_front.z));
-            
-            // lightSaber = glm::rotate(lightSaber, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)); 
-            // lightSaber = glm::rotate(lightSaber, (pitch/50.0f), glm::vec3(1.0f, 0.0f, 1.0f));
-
-        
-
-            lightSaber = glm::translate(lightSaber, light_tool_positions[tab]);
-
-            lightSaber = glm::scale(lightSaber, light_tool_scales[tab]);
-
-            
-            ourShader.setMat4("model", lightSaber);
-
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
-
-		//** sven the wolf **//
-		glm::vec3 sven_scales[] = {
-			glm::vec3( 0.2f,  0.18f,  0.15f),	//head
-			glm::vec3( 0.3f,  0.25f,  0.2f),//collar
-			glm::vec3( 0.2f,  0.2f,  0.4f),	//body
-			glm::vec3( 0.1f,  0.06f,  0.1f),//mouth
-			glm::vec3( 0.07f,  0.09f,  0.02f),	//right ear
-			glm::vec3( 0.07f,  0.09f,  0.02f),	//left ear
-			glm::vec3( 0.05f,  0.06f,  0.2f),	//tail
-			glm::vec3( 0.08f,  0.3f,  0.08f),	//right front leg
-			glm::vec3( 0.08f,  0.3f,  0.08f),	//left front leg
-			glm::vec3( 0.08f,  0.3f,  0.08f),	//right back leg
-			glm::vec3( 0.08f,  0.3f,  0.08f),	//left back leg
-			glm::vec3( 0.1f,  0.02f,  0.1f),//jaw
-			glm::vec3( 0.02f,  0.02f,  0.02f),//nose
-			glm::vec3( 0.05f,  0.03f,  0.0f),//left eye
-			glm::vec3( 0.05f,  0.03f,  0.0f),//right eye
-		};
-
-		glm::vec3 sven_positions[] = {
-			glm::vec3( 0.0f,  0.82f,  0.75f),		//1.head
-			glm::vec3( 0.0f, 0.8f,  0.9f),	//2.collar
-			glm::vec3( 0.0f, 0.8f,  1.2f),	//3.body
-		 	glm::vec3(0.0f, 0.78f, 0.63f),	//4.mouth
-		 	glm::vec3( 0.064f, 0.92f, 0.75f),	//5.right ear
-		 	glm::vec3( -0.064f, 0.92f, 0.75f),	//6.left ear
-		 	glm::vec3( -0.0f, 0.86f, 1.45f),	//7.tail
-		 	glm::vec3( 0.05f, 0.6f, 0.92f),	//8.right front leg
-		 	glm::vec3( -0.05f, 0.6f, 0.92f),	//9.left front leg
-		 	glm::vec3( 0.05f, 0.6f, 1.32f),	//10.right back leg
-		 	glm::vec3( -0.05f, 0.6f, 1.32f),	//11.left back leg
-		 	glm::vec3(0.0f, 0.74f, 0.625f),	//12. jaw
-		 	glm::vec3(0.0f, 0.81f, 0.58f),	//13. nose
-		 	glm::vec3(-0.05f, 0.825f, 0.674f),	//14. left_eye
-		 	glm::vec3(0.05f, 0.825f, 0.674f),	//15. right_eye
-		};
-
-		glBindVertexArray(VAO_box[0]);
-
-		for(int tab = 0; tab < SVEN_SIZE; tab++)
-		{	
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, sven_tex[tab]);
-
-			// std::cout << tab << std::endl;
-			//translate first then scale or rotate
-			glm::mat4 sven = glm::mat4();
-			sven = glm::mat4();
-			sven = glm::translate(sven, sven_positions[tab]);
-			sven = glm::translate(sven, glm::vec3(-2.0f, -0.5f, -1.2f));
-			sven = glm::scale(sven, sven_scales[tab]);
-
-			if(tab == 13)
-			{
-				sven = glm::rotate(sven, glm::radians(90.0f), glm::vec3(0.0, 0.0, 1.0));
-			}
-			else if(tab == 14)
-			{
-				sven = glm::rotate(sven, glm::radians(-90.0f), glm::vec3(0.0, 0.0, 1.0));	
-			}
-
-			ourShader.setMat4("model", sven);
-
-			glDrawArrays(GL_TRIANGLES, 0, 36);
-		}
-
-        //** water sheep **//
-        glm::vec3 sheep_scales[] = {
-            glm::vec3( 0.35f,  0.25f,  0.55f),  //body
-            glm::vec3( 0.2f,  0.2f,  0.2f),//wool head
-            glm::vec3( 0.16f,  0.16f,  0.02f),//head face
-            glm::vec3( 0.16f,  0.16f,  0.0f),//face
-            glm::vec3( 0.14f,  0.14f,  0.14f),  //right front leg
-            glm::vec3( 0.14f,  0.14f,  0.14f),//left front leg
-            glm::vec3( 0.14f,  0.14f,  0.14f),  //right back leg
-            glm::vec3( 0.14f,  0.14f,  0.14f),  //left back leg
-            glm::vec3( 0.1f,  0.2f,  0.1f),  //lower leg
-        };
-        glm::vec3 sheep_positions[] = {
-            glm::vec3( 0.0f,  0.5f,  4.0f),     //1.body
-            glm::vec3( 0.0f, 0.65f,  3.75f),    //2.wool head
-            glm::vec3( 0.0f, 0.65f,  3.64f),    //3.head face
-            glm::vec3( 0.0f, 0.65f,  3.6297f),    //4.face
-            glm::vec3( 0.08f, 0.328f,  3.85f),  //5. r front leg
-            glm::vec3(-0.08f, 0.328f, 3.85f),   //6. l front leg
-            glm::vec3( 0.08f, 0.328f,  4.18f),  //7. r back leg
-            glm::vec3( -0.08f, 0.328f,  4.18f), //8. l back leg
-            glm::vec3( 0.08f, 0.25f,  3.85f),  //9. r front low leg
-            glm::vec3( -0.08f, 0.25f,  3.85f),  //10. l front low leg
-            glm::vec3( 0.08f, 0.25f,  4.18f),  //11. r back low leg
-            glm::vec3( -0.08f, 0.25f,  4.18f), //12. l back low leg
-
-        };
-
-        glBindVertexArray(VAO_box[0]);
-
-        for(int tab = 0; tab < 12; tab++)
-        {   
-            glm::mat4 sheep = glm::mat4();
-
-            //opengl column vector, must do opposite order of row vector
-            sheep = glm::translate(sheep, glm::vec3(2.0f, -0.15f, -6.5f));
-            sheep = glm::translate(sheep, glm::vec3(0.08f, 0.25f, 4.18f));//put back
-            sheep= glm::rotate(sheep, glm::radians(90.0f), glm::vec3(0.0, 1.0, 0.0));
-            sheep = glm::translate(sheep, glm::vec3(0.08f, -0.25f, -4.18f));//move to origins
-            sheep = glm::translate(sheep, sheep_positions[tab]);//start
-            // sheep = glm::translate(sheep, glm::vec3(0.08f, -0.25f, -4.18f));
-            //index positions less than 8 are different models
-            if(tab < 9)
-            {
-                 sheep = glm::scale(sheep, sheep_scales[tab]);
-                 glActiveTexture(GL_TEXTURE0);
-                 glBindTexture(GL_TEXTURE_2D, sheep_tex[tab]);
-            }
-            else //index above 7 then reuse lower leg model
-            {
-                sheep = glm::scale(sheep, sheep_scales[8]); 
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, sheep_tex[8]);  
-            }
-
-            
-
-            // model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-
-            ourShader.setMat4("model", sheep);
-
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
-
+        draw_models(ourShader, view);
 
 		//Button on table (1 big box & 1 small box as button)
 		glm::vec3 button_scales[] = {
@@ -753,8 +584,8 @@ int main()
 // ---------------------------------------------------------------------------------------------------------
 void process_input(GLFWwindow *window)
 {
-    	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        	glfwSetWindowShouldClose(window, true);
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+    	glfwSetWindowShouldClose(window, true);
 
 	float cameraSpeed;
 
@@ -762,7 +593,6 @@ void process_input(GLFWwindow *window)
 		cameraSpeed = 2.5 * delta_time; 
 	else
 		cameraSpeed = 2.5 * delta_time * 2;	// double speed with "Shift" pressed
-
 
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS )
 		camera_pos += cameraSpeed * camera_front;
@@ -799,22 +629,47 @@ void process_input(GLFWwindow *window)
 			SHOW_COORDINATE = false;
 	}
 
-    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS && SHOW_DELAY == 0)
+    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS && SHOW_DELAY == 0 && TORCH_NEAR)
     {
-        SHOW_DELAY = 20;
+        SHOW_DELAY = 30;
         LIGHT_TOUCHED = true;
         if(PICKUP_LIGHT == false)
         {
             PICKUP_LIGHT = true;
-            LIGHT_IN_HAND = true;
         }
         else
         {
-           PICKUP_LIGHT = false;
-           last_pos =  camera_pos + camera_front;
+            //place light down if looking at ground
+            if(pitch >= -60.0f && pitch < -52.0f)
+            {
+               PICKUP_LIGHT = false;
+               last_pos =  camera_pos + camera_front;
+            }
         }
     }
 
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS && SHOW_DELAY == 0 && SVEN_NEAR)
+    {
+        SHOW_DELAY = 30;
+        if(PICKUP_SVEN == false)
+        {
+            PICKUP_SVEN = true;
+            SVEN_TOUCHED = true;
+        }
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS && SHOW_DELAY == 0)
+    {
+        SHOW_DELAY = 30;
+        if(isPerspec)
+        {
+            isPerspec = false;
+        }
+        else
+        {
+            isPerspec = true;
+        }
+    }
 }
 
 // glfw: whenever the mouse moves, this callback is called
@@ -932,4 +787,222 @@ void register_tex_pack(unsigned int * tex, std::string path, int size, const std
 		}
 		stbi_image_free(data);
 	}
+}
+
+//function to draw models, makes code look neater
+void draw_models(Shader ourShader, glm::mat4 view)
+{
+    //--------light source----------//
+    glm::vec3 light_tool_scales[] = {
+        glm::vec3( 0.03f,  0.09f,  0.03f), //hilt
+        glm::vec3( 0.025f,  0.14f,  0.025f),// source
+    };
+
+    glm::vec3 light_tool_positions[] = {
+        glm::vec3( 0.0f,  0.0f,  0.0f),     //hilt
+        glm::vec3(0.0f, 0.11f,  0.0f),    //source
+    };
+
+    // glm::vec3 light_tool_positions[] = {
+    //     glm::vec3( camera_pos.x,  0.0f + (camera_pos.y),  camera_pos.z),     //hilt
+    //     glm::vec3(camera_pos.x, 0.11f + (camera_pos.y),  camera_pos.z),    //source
+    // };
+
+    glBindVertexArray(VAO_box[1]);
+    float tempY = 0.0f;
+
+    for(int tab = 0; tab < 2; tab++)
+    {   
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, light_tool_tex[tab]);
+        glm::mat4 lightSaber = glm::mat4();
+        
+        if(PICKUP_LIGHT == false)
+        {
+            //if light has never been touched then put it at default location
+            if(LIGHT_TOUCHED == false)
+            {
+                lightSaber = glm::translate(lightSaber, glm::vec3(0.0f, 0.1f, 3.0f));  
+                TORCH_NEAR = obj_is_near(glm::vec3(0.0f, 0.1f, 3.0f), 1.6f);//collision detection
+            }
+            else //otherwise light not at default location, render at last location placed
+            {
+                tempY = glm::abs(last_pos.y);//make sure position above ground
+                
+                if(tempY < 0.02f)
+                    tempY += 0.03f;//makes sure object does go below ground
+
+                // std::cout << tempY << std::endl;
+                lightSaber = glm::translate(lightSaber, glm::vec3(last_pos.x, tempY + 0.01, last_pos.z));    
+                TORCH_NEAR = obj_is_near(glm::vec3(last_pos.x, tempY, last_pos.z), 1.6f); //collision detection
+            }
+        }
+        else
+        {
+            //inverse of view allows view camera matrix points to be used in model space
+            //since the view matrix is inverse of model space, bringing model to view
+            prev_view = glm::inverse(view);
+            lightSaber = glm::translate(lightSaber, glm::vec3(0.1f, -0.1f, -0.3f));
+            lightSaber =  prev_view * lightSaber; //bring the lightsaber to the view/camera space
+        }
+
+        lightSaber = glm::translate(lightSaber, light_tool_positions[tab]); //model part positioning
+        lightSaber = glm::scale(lightSaber, light_tool_scales[tab]);//model scale
+
+        ourShader.setMat4("model", lightSaber);
+
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+    }
+
+
+        //** sven the wolf **//
+    glm::vec3 sven_scales[] = {
+        glm::vec3( 0.2f,  0.18f,  0.15f),   //head
+        glm::vec3( 0.3f,  0.25f,  0.2f),//collar
+        glm::vec3( 0.2f,  0.2f,  0.4f), //body
+        glm::vec3( 0.1f,  0.06f,  0.1f),//mouth
+        glm::vec3( 0.07f,  0.09f,  0.02f),  //right ear
+        glm::vec3( 0.07f,  0.09f,  0.02f),  //left ear
+        glm::vec3( 0.05f,  0.06f,  0.2f),   //tail
+        glm::vec3( 0.08f,  0.3f,  0.08f),   //right front leg
+        glm::vec3( 0.08f,  0.3f,  0.08f),   //left front leg
+        glm::vec3( 0.08f,  0.3f,  0.08f),   //right back leg
+        glm::vec3( 0.08f,  0.3f,  0.08f),   //left back leg
+        glm::vec3( 0.1f,  0.02f,  0.1f),//jaw
+        glm::vec3( 0.02f,  0.02f,  0.02f),//nose
+        glm::vec3( 0.05f,  0.03f,  0.0f),//left eye
+        glm::vec3( 0.05f,  0.03f,  0.0f),//right eye
+    };
+
+    glm::vec3 sven_positions[] = {
+        glm::vec3( 0.0f,  0.82f,  0.75f),       //1.head
+        glm::vec3( 0.0f, 0.8f,  0.9f),  //2.collar
+        glm::vec3( 0.0f, 0.8f,  1.2f),  //3.body
+        glm::vec3(0.0f, 0.78f, 0.63f),  //4.mouth
+        glm::vec3( 0.064f, 0.92f, 0.75f),   //5.right ear
+        glm::vec3( -0.064f, 0.92f, 0.75f),  //6.left ear
+        glm::vec3( -0.0f, 0.86f, 1.45f),    //7.tail
+        glm::vec3( 0.05f, 0.6f, 0.92f), //8.right front leg
+        glm::vec3( -0.05f, 0.6f, 0.92f),    //9.left front leg
+        glm::vec3( 0.05f, 0.6f, 1.32f), //10.right back leg
+        glm::vec3( -0.05f, 0.6f, 1.32f),    //11.left back leg
+        glm::vec3(0.0f, 0.74f, 0.625f), //12. jaw
+        glm::vec3(0.0f, 0.81f, 0.58f),  //13. nose
+        glm::vec3(-0.05f, 0.825f, 0.674f),  //14. left_eye
+        glm::vec3(0.05f, 0.825f, 0.674f),   //15. right_eye
+    };
+
+    glBindVertexArray(VAO_box[0]);
+
+    for(int tab = 0; tab < SVEN_SIZE; tab++)
+    {   
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, sven_tex[tab]);
+
+        // std::cout << tab << std::endl;
+        //translate first then scale or rotate
+        glm::mat4 sven = glm::mat4();
+        
+        
+        if(PICKUP_SVEN == false)
+        {
+            //if light has never been touched then put it at default location
+            if(SVEN_TOUCHED == false)
+            {
+                sven = glm::translate(sven, glm::vec3(-2.0f, 0.3f, 0.0f));  
+                SVEN_NEAR = obj_is_near(glm::vec3(-2.0f, 0.3f, 0.0f), 1.6f);//collision detection
+                // std::cout << SVEN_NEAR << std::endl;
+            }
+        }
+        else
+        {
+             
+            //inverse of view allows view camera matrix points to be used in model space
+            //since the view matrix is inverse of model space, bringing model to view
+            prev_view = glm::inverse(view);
+
+            
+            sven = glm::translate(sven, glm::vec3(-0.3f, -0.1f, -0.4f));   
+            sven = glm::rotate(sven, glm::radians(-95.0f), glm::vec3(0.0f, 1.0f, 0.0f));         
+            sven = glm::scale(sven, glm::vec3(0.5f, 0.5f, 0.5f));
+            sven =  prev_view * sven; //bring the lightsaber to the view/camera space
+        }
+
+        sven = glm::translate(sven, glm::vec3(0.0f, -0.8f, -1.2f)); 
+        sven = glm::translate(sven, sven_positions[tab]);
+        sven = glm::scale(sven, sven_scales[tab]);
+        if(tab == 13)
+        {
+            sven = glm::rotate(sven, glm::radians(90.0f), glm::vec3(0.0, 0.0, 1.0));
+        }
+        else if(tab == 14)
+        {
+            sven = glm::rotate(sven, glm::radians(-90.0f), glm::vec3(0.0, 0.0, 1.0));   
+        }
+
+        ourShader.setMat4("model", sven);
+
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+    }
+
+
+    //** water sheep **//
+    glm::vec3 sheep_scales[] = {
+        glm::vec3( 0.35f,  0.25f,  0.55f),  //body
+        glm::vec3( 0.2f,  0.2f,  0.2f),//wool head
+        glm::vec3( 0.16f,  0.16f,  0.02f),//head face
+        glm::vec3( 0.16f,  0.16f,  0.0f),//face
+        glm::vec3( 0.14f,  0.14f,  0.14f),  //right front leg
+        glm::vec3( 0.14f,  0.14f,  0.14f),//left front leg
+        glm::vec3( 0.14f,  0.14f,  0.14f),  //right back leg
+        glm::vec3( 0.14f,  0.14f,  0.14f),  //left back leg
+        glm::vec3( 0.1f,  0.2f,  0.1f),  //lower leg
+    };
+
+    glm::vec3 sheep_positions[] = {
+        glm::vec3( 0.0f,  0.5f,  4.0f),     //1.body
+        glm::vec3( 0.0f, 0.65f,  3.75f),    //2.wool head
+        glm::vec3( 0.0f, 0.65f,  3.64f),    //3.head face
+        glm::vec3( 0.0f, 0.65f,  3.6297f),    //4.face
+        glm::vec3( 0.08f, 0.328f,  3.85f),  //5. r front leg
+        glm::vec3(-0.08f, 0.328f, 3.85f),   //6. l front leg
+        glm::vec3( 0.08f, 0.328f,  4.18f),  //7. r back leg
+        glm::vec3( -0.08f, 0.328f,  4.18f), //8. l back leg
+        glm::vec3( 0.08f, 0.25f,  3.85f),  //9. r front low leg
+        glm::vec3( -0.08f, 0.25f,  3.85f),  //10. l front low leg
+        glm::vec3( 0.08f, 0.25f,  4.18f),  //11. r back low leg
+        glm::vec3( -0.08f, 0.25f,  4.18f), //12. l back low leg
+    };
+
+    glBindVertexArray(VAO_box[0]);
+
+    for(int tab = 0; tab < 12; tab++)
+    {   
+        glm::mat4 sheep = glm::mat4();
+
+        //opengl column vector, must do opposite order of row vector
+        sheep = glm::translate(sheep, glm::vec3(2.0f, -0.15f, -6.5f));
+        sheep = glm::translate(sheep, glm::vec3(0.08f, 0.25f, 4.18f));//put back
+        sheep= glm::rotate(sheep, glm::radians(90.0f), glm::vec3(0.0, 1.0, 0.0));
+        sheep = glm::translate(sheep, glm::vec3(0.08f, -0.25f, -4.18f));//move to origins
+        sheep = glm::translate(sheep, sheep_positions[tab]);//start
+        // sheep = glm::translate(sheep, glm::vec3(0.08f, -0.25f, -4.18f));
+        //index positions less than 8 are different models
+        if(tab < 9)
+        {
+             sheep = glm::scale(sheep, sheep_scales[tab]);
+             glActiveTexture(GL_TEXTURE0);
+             glBindTexture(GL_TEXTURE_2D, sheep_tex[tab]);
+        }
+        else //index above 7 then reuse lower leg model
+        {
+            sheep = glm::scale(sheep, sheep_scales[8]); 
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, sheep_tex[8]);  
+        }
+
+        ourShader.setMat4("model", sheep);
+
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+    }    
 }
