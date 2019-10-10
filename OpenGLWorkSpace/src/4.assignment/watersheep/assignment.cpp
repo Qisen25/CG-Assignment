@@ -70,7 +70,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 unsigned int loadTexture(char const * path);
 
 void register_tex_pack(unsigned int * tex, std::string path, int size, const std::string pack[]);
-void draw_models(Shader ourShader, glm::mat4 view);
+void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader lamp_shader);
 
 // settings
 const unsigned int SCR_WIDTH = 800;
@@ -83,7 +83,7 @@ unsigned int VBO_box[2], VAO_box[2];
 unsigned int VAO_light;
 
 //lighting
-glm::vec3 light_pos(0.0f, 1.0f, 0.1f);
+glm::vec3 light_pos(0.0f, 0.3f, 3.0f);
 
 // camera
 glm::vec3 camera_pos   = glm::vec3(0.0f, 0.9f,  3.0f);
@@ -299,10 +299,16 @@ int main()
 	glGenVertexArrays(1, &VAO_light);
 	glBindVertexArray(VAO_light);
 
-	glBindBuffer(GL_ARRAY_BUFFER, VBO_box[2]);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO_box[1]);
 	// note that we update the lamp's position attribute's stride to reflect the updated buffer data
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
+	//normal vectors
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+	//texture coordinates
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+	glEnableVertexAttribArray(2);
 
 
 	// load and create a texture 
@@ -382,7 +388,7 @@ int main()
 		ourShader.setVec3("light.position", light_pos);
        	ourShader.setVec3("viewPos", camera_pos);
 
-       	ourShader.setVec3("light.ambient", 1.1f, 1.1f, 1.1f);
+       	ourShader.setVec3("light.ambient", 0.1f, 0.1f, 0.1f);
 
        	if(BUTTON_PRESSED == true)
 		{
@@ -411,7 +417,6 @@ int main()
 		// camera/view transformation
 		glm::mat4 view = glm::lookAt(camera_pos, camera_pos + camera_front, camera_up);
 		ourShader.setMat4("view", view);
-
 
 		//declare transformation matrix
 		glm::mat4 model = glm::mat4();
@@ -538,7 +543,7 @@ int main()
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
 
-        draw_models(ourShader, view);
+        draw_models(ourShader, view, projection, lamp_shader);
 
 		//Button on table (1 big box & 1 small box as button)
 		glm::vec3 button_scales[] = {
@@ -615,21 +620,12 @@ int main()
 
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 
-		// Draw the light source
-		lamp_shader.use();
-		lamp_shader.setMat4("projection", projection);
-		lamp_shader.setMat4("view", view);
-		model = glm::mat4();
-		model = glm::translate(model, light_pos);
-		model = glm::scale(model, glm::vec3(0.01f)); // a smaller cube
-		lamp_shader.setMat4("model", model);
 
 		
-		if(BUTTON_PRESSED == true) lamp_shader.setFloat("intensity", 1.0);
+		if(BUTTON_PRESSED == true) lamp_shader.setFloat("intensity", 5.0);
 		else lamp_shader.setFloat("intensity", 0.3);
 
-		glBindVertexArray(VAO_light);
-		glDrawArrays(GL_TRIANGLES, 0, 36);
+		
 
 
 
@@ -841,26 +837,43 @@ void register_tex_pack(unsigned int * tex, std::string path, int size, const std
 	for(i = 0; i < size; i++)
 	{
 		// std::cout << pack[i] << std::endl;
-		glGenTextures(1, &tex[i]);
-		glBindTexture(GL_TEXTURE_2D, tex[i]);
-		// set the texture wrapping parameters
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+		// glGenTextures(1, &tex[i]);
+		// glBindTexture(GL_TEXTURE_2D, tex[i]);
+		// // set the texture wrapping parameters
+		// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+		// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
-		float borderColor [] = {1.0f, 1.0f, 1.0f, 1.0f};
-		glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-		// set texture filtering parameters
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		// float borderColor [] = {1.0f, 1.0f, 1.0f, 1.0f};
+		// glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+		// // set texture filtering parameters
+		// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		// load image, create texture and generate mipmaps
-		int width, height, nrChannels;
+
+		glGenTextures(1, &tex[i]);
+
+		int width, height, nrComponents;
 	
 		stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
-		unsigned char *data = stbi_load(FileSystem::getPath(path + pack[i]).c_str(), &width, &height, &nrChannels, 0);
+		unsigned char *data = stbi_load(FileSystem::getPath(path + pack[i]).c_str(), &width, &height, &nrComponents, 0);
 		if (data)
 		{
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+			GLenum format;
+			if (nrComponents == 1)
+				format = GL_RED;
+			else if (nrComponents == 3)
+				format = GL_RGB;
+			else if (nrComponents == 4)
+				format = GL_RGBA;
+
+			glBindTexture(GL_TEXTURE_2D, tex[i]);
+			glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
 			glGenerateMipmap(GL_TEXTURE_2D);
+
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		}
 		else
 		{
@@ -871,7 +884,7 @@ void register_tex_pack(unsigned int * tex, std::string path, int size, const std
 }
 
 //function to draw models, makes code look neater
-void draw_models(Shader ourShader, glm::mat4 view)
+void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader lamp_shader)
 {
     //--------light source----------//
     glm::vec3 light_tool_scales[] = {
@@ -914,7 +927,8 @@ void draw_models(Shader ourShader, glm::mat4 view)
                     tempY += 0.03f;//makes sure object does go below ground
 
                 // std::cout << tempY << std::endl;
-                lightSaber = glm::translate(lightSaber, glm::vec3(last_pos.x, tempY + 0.01, last_pos.z));    
+                lightSaber = glm::translate(lightSaber, glm::vec3(last_pos.x, tempY + 0.01, last_pos.z));  
+                light_pos = glm::vec3(last_pos.x, tempY, last_pos.z);  
                 TORCH_NEAR = obj_is_near(glm::vec3(last_pos.x, tempY, last_pos.z), 1.6f); //collision detection
             }
         }
@@ -925,14 +939,32 @@ void draw_models(Shader ourShader, glm::mat4 view)
             prev_view = glm::inverse(view);
             lightSaber = glm::translate(lightSaber, glm::vec3(0.1f, -0.1f, -0.3f));
             lightSaber =  prev_view * lightSaber; //bring the lightsaber to the view/camera space
+            light_pos = glm::vec3(camera_pos.x, camera_pos.y, camera_pos.z);
         }
+	    if(tab == 1 && BUTTON_PRESSED)
+	    {
+        	// std::cout << tab << std::endl;
+        	glBindVertexArray(VAO_light);
+	        // Draw the light source
+	        lamp_shader.use();
+	    	lamp_shader.setMat4("projection", projection);
+			lamp_shader.setMat4("view", view);
+			
+			lightSaber = glm::translate(lightSaber, light_tool_positions[tab]); //model part positioning
+			lightSaber = glm::scale(lightSaber, light_tool_scales[tab]); // a smaller cube
+			lamp_shader.setMat4("model", lightSaber);
+			
+			glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
+        else if(tab != 1)
+        {
+	    	lightSaber = glm::translate(lightSaber, light_tool_positions[tab]); //model part positioning
+	        lightSaber = glm::scale(lightSaber, light_tool_scales[tab]);//model scale
+	        ourShader.use();
+	        ourShader.setMat4("model", lightSaber);
 
-        lightSaber = glm::translate(lightSaber, light_tool_positions[tab]); //model part positioning
-        lightSaber = glm::scale(lightSaber, light_tool_scales[tab]);//model scale
-
-        ourShader.setMat4("model", lightSaber);
-
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+	        glDrawArrays(GL_TRIANGLES, 0, 36);
+	    }
     }
 
 
@@ -973,6 +1005,7 @@ void draw_models(Shader ourShader, glm::mat4 view)
         glm::vec3(0.05f, 0.825f, 0.674f),   //15. right_eye
     };
 
+    ourShader.use();
     glBindVertexArray(VAO_box[0]);
 
     for(int tab = 0; tab < SVEN_SIZE; tab++)
