@@ -20,53 +20,54 @@
 // Every 3 coordinates will form 1 triangle.
 // The last 2 columns represent texture coordinate for mapping.
 float box[] = {
-	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-	 0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+	// positions          // normals           // texture coords
+	-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  0.0f,
+	 0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  0.0f,
+	 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f,
+	 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f,
+	-0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  1.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  0.0f,
 
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-	-0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  0.0f,
+	 0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  0.0f,
+	 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
+	 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
+	-0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  0.0f,
 
-	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	-0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+	-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
+	-0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f,
+	-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
+	-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
+	-0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,
+	-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
 
-	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	 0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	 0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	 0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+	 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
+	 0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  1.0f,
+	 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
+	 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
+	 0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  0.0f,
+	 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
 
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	 0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-	 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-	 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,
+	 0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  1.0f,
+	 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,
+	 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  0.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,
 
-	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	-0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+	-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
+	 0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,
+	 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,
+	 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,
+	-0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  0.0f,
+	-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f
 };
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void process_input(GLFWwindow *window);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
-void register_texture(unsigned int * tex, std::string path);
+unsigned int loadTexture(char const * path);
 
 void register_tex_pack(unsigned int * tex, std::string path, int size, const std::string pack[]);
 void draw_models(Shader ourShader, glm::mat4 view);
@@ -79,6 +80,10 @@ const unsigned int SCR_HEIGHT = 800;
 unsigned int sven_tex[SVEN_SIZE], sheep_tex[SHEEP_SIZE], light_tool_tex[2];
 //vertex buffers allow global access for ease
 unsigned int VBO_box[2], VAO_box[2];
+unsigned int VAO_light;
+
+//lighting
+glm::vec3 light_pos(0.0f, 1.0f, 0.1f);
 
 // camera
 glm::vec3 camera_pos   = glm::vec3(0.0f, 0.9f,  3.0f);
@@ -250,58 +255,86 @@ int main()
 
 	// build and compile our shader zprogram
 	// ------------------------------------
-	Shader ourShader("sample1.vs", "sample1.fs");
+	Shader ourShader("./sample2.vs", "./sample2.fs");
+	Shader lamp_shader("./lamp.vs", "./lamp.fs");
 
 
 	// set up vertex data (and buffer(s)) and configure vertex attributes
 	// ------------------------------------------------------------------
 
-	
-
 	glGenVertexArrays(2, VAO_box);
 	glGenBuffers(2, VBO_box);
 
-    //cube with sides texture rotated to different position
 	glBindVertexArray(VAO_box[0]);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO_box[0]);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(box), box, GL_STATIC_DRAW);
-	// position attribute
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+
+	//vertex coordinates
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
-	// texture coord attribute
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	//normal vectors
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
+	//texture coordinates
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+	glEnableVertexAttribArray(2);
 
-    //cube with sides textures that exactly the same
-    glBindVertexArray(VAO_box[1]);
+	glBindVertexArray(VAO_box[1]);
 
-    glBindBuffer(GL_ARRAY_BUFFER, VBO_box[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(same_side_box), same_side_box, GL_STATIC_DRAW);
-    // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    // texture coord attribute
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO_box[1]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(box), same_side_box, GL_STATIC_DRAW);
+
+	//vertex coordinates
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+	//normal vectors
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+	//texture coordinates
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+	glEnableVertexAttribArray(2);
+
+	// second, configure the light's VAO (VBO stays the same; the vertices are the same for the light object which is also a 3D cube)
+	glGenVertexArrays(1, &VAO_light);
+	glBindVertexArray(VAO_light);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO_box[2]);
+	// note that we update the lamp's position attribute's stride to reflect the updated buffer data
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
 
 
 	// load and create a texture 
 	// -------------------------
-	unsigned int tex_wood, tex_street, tex_grass, tex_marble, tex_curtin, tex_sky;
-	unsigned int tex_red_dark, tex_red_bright, tex_red, tex_green, tex_blue;
+	unsigned int tex_wood_diffuse, tex_street_diffuse, tex_grass_diffuse, tex_marble_diffuse, tex_curtin_diffuse, tex_sky_diffuse;
+	unsigned int tex_wood_specular, tex_street_specular, tex_grass_specular, tex_marble_specular, tex_curtin_specular;
 
-	register_texture(&tex_wood,"resources/textures/wood2.jpg");
-	register_texture(&tex_street,"resources/textures/street.png");
-	register_texture(&tex_grass,"resources/textures/grass.jpg");
-	register_texture(&tex_marble,"resources/textures/marble.jpg");
-	register_texture(&tex_curtin,"resources/textures/curtin.jpg");
-	register_texture(&tex_sky,"resources/textures/night_sky.jpg");
-	register_texture(&tex_red_dark,"resources/textures/red_dark.jpg");
-	register_texture(&tex_red_bright,"resources/textures/red_bright.jpg");
-	register_texture(&tex_red,"resources/textures/red.jpg");
-	register_texture(&tex_green,"resources/textures/green.jpg");
-	register_texture(&tex_blue,"resources/textures/blue.jpg");
+	unsigned int tex_red_dark_diffuse, tex_red_bright_diffuse, tex_red_diffuse, tex_green_diffuse, tex_blue_diffuse;
+	unsigned int tex_red_dark_specular, tex_red_bright_specular, tex_red_specular, tex_green_specular, tex_blue_specular;
+
+	tex_wood_diffuse = loadTexture(FileSystem::getPath("resources/textures/wood2.jpg").c_str());
+	tex_wood_specular = loadTexture(FileSystem::getPath("resources/textures/wood2_specular.jpg").c_str());
+	tex_street_diffuse = loadTexture(FileSystem::getPath("resources/textures/street.png").c_str());
+	tex_street_specular = loadTexture(FileSystem::getPath("resources/textures/street_specular.png").c_str());
+	tex_grass_diffuse = loadTexture(FileSystem::getPath("resources/textures/grass.jpg").c_str());
+	tex_grass_specular = loadTexture(FileSystem::getPath("resources/textures/grass_specular.jpg").c_str());
+	tex_marble_diffuse = loadTexture(FileSystem::getPath("resources/textures/marble.jpg").c_str());
+	tex_marble_specular = loadTexture(FileSystem::getPath("resources/textures/marble_specular.jpg").c_str());
+	tex_curtin_diffuse = loadTexture(FileSystem::getPath("resources/textures/curtin.jpg").c_str());
+	tex_curtin_specular = loadTexture(FileSystem::getPath("resources/textures/curtin_specular.jpg").c_str());
+	tex_sky_diffuse = loadTexture(FileSystem::getPath("resources/textures/night_sky.jpg").c_str());
+
+	tex_red_dark_diffuse = loadTexture(FileSystem::getPath("resources/textures/red_dark.jpg").c_str());
+	tex_red_dark_specular = loadTexture(FileSystem::getPath("resources/textures/red_dark_specular.jpg").c_str());
+	tex_red_bright_diffuse = loadTexture(FileSystem::getPath("resources/textures/red_bright.jpg").c_str());
+	tex_red_bright_specular = loadTexture(FileSystem::getPath("resources/textures/red_bright_specular.jpg").c_str());
+	tex_red_diffuse = loadTexture(FileSystem::getPath("resources/textures/red.jpg").c_str());
+	tex_red_specular = loadTexture(FileSystem::getPath("resources/textures/red_specular.jpg").c_str());
+	tex_green_diffuse = loadTexture(FileSystem::getPath("resources/textures/green.jpg").c_str());
+	tex_green_specular = loadTexture(FileSystem::getPath("resources/textures/green_specular.jpg").c_str());
+	tex_blue_diffuse = loadTexture(FileSystem::getPath("resources/textures/blue.jpg").c_str());
+	tex_blue_specular = loadTexture(FileSystem::getPath("resources/textures/blue_specular.jpg").c_str());
 	// register_texture(&sven_body,"resources/sven_textures/" + sven_files[6]);
 
 	register_tex_pack(sven_tex,"resources/sven_textures/", SVEN_SIZE, sven_files);
@@ -312,7 +345,8 @@ int main()
 	// tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
 	// -------------------------------------------------------------------------------------------
 	ourShader.use();
-
+	ourShader.setInt("material.diffuse", 0);
+	ourShader.setInt("material.specular", 1);
 	// pass projection matrix to shader (as projection matrix rarely changes there's no need to do this per frame)
 	// -----------------------------------------------------------------------------------------------------------
 
@@ -345,6 +379,22 @@ int main()
 
 		// activate shader
 		ourShader.use();
+		ourShader.setVec3("light.position", light_pos);
+       	ourShader.setVec3("viewPos", camera_pos);
+
+       	ourShader.setVec3("light.ambient", 1.1f, 1.1f, 1.1f);
+
+       	if(BUTTON_PRESSED == true)
+		{
+			ourShader.setVec3("light.diffuse", 0.8f, 0.8f, 0.8f);
+			ourShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+		}
+		else
+		{
+			ourShader.setVec3("light.diffuse", 0.0f, 0.0f, 0.0f);
+			ourShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+		}
+		ourShader.setFloat("material.shininess", 100.0f);
 
        //projection transformation
         glm::mat4 projection; 
@@ -376,17 +426,17 @@ int main()
 		//------------------------------------------------------------------------------------------
 		
 		//Sky
-		glBindVertexArray(VAO_box[0]);//This does not have to binded every time after first call, but just for consistency.
+		// glBindVertexArray(VAO_box[0]);//This does not have to binded every time after first call, but just for consistency.
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex_sky);
+		// glActiveTexture(GL_TEXTURE0);
+		// glBindTexture(GL_TEXTURE_2D, tex_sky_diffuse);
 
-		model = glm::mat4();
-		model = glm::scale(model, glm::vec3(200.0f, 200.0f, 200.0f));
+		// model = glm::mat4();
+		// model = glm::scale(model, glm::vec3(200.0f, 200.0f, 200.0f));
 
-		ourShader.setMat4("model", model);
+		// ourShader.setMat4("model", model);
 
-		glDrawArrays(GL_TRIANGLES, 0, 36);
+		// glDrawArrays(GL_TRIANGLES, 0, 36);
 
 
 		//Coordinate System
@@ -405,9 +455,9 @@ int main()
 
 			for(int tab = 0; tab < 3; tab++)
 			{	
-				if(tab == 0) glBindTexture(GL_TEXTURE_2D, tex_red); 	//X
-				if(tab == 1) glBindTexture(GL_TEXTURE_2D, tex_green);	//Y
-				if(tab == 2) glBindTexture(GL_TEXTURE_2D, tex_blue);	//Z
+				if(tab == 0) glBindTexture(GL_TEXTURE_2D, tex_red_diffuse); 	//X
+				if(tab == 1) glBindTexture(GL_TEXTURE_2D, tex_green_diffuse);	//Y
+				if(tab == 2) glBindTexture(GL_TEXTURE_2D, tex_blue_diffuse);	//Z
 
 				model = glm::mat4();
 				model = glm::scale(model, coord_scales[tab]);
@@ -423,25 +473,30 @@ int main()
 		glBindVertexArray(VAO_box[0]);
 
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex_street);
+		glBindTexture(GL_TEXTURE_2D, tex_street_diffuse);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, tex_street_specular);
 
 		model = glm::mat4();
-		model = glm::scale(model, glm::vec3(3.0f, 0.0f, 7.0f));
+		model = glm::scale(model, glm::vec3(3.0f, 0.001f, 7.0f));
 
 		ourShader.setMat4("model", model);
 
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 
 
+
 		//Grass
 		glBindVertexArray(VAO_box[0]);
 
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex_grass);
+		glBindTexture(GL_TEXTURE_2D, tex_grass_diffuse);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, tex_grass_specular);
 
 		model = glm::mat4();
 		model = glm::translate(model, glm::vec3(0.0f, -0.01f, 0.0f));
-		model = glm::scale(model, glm::vec3(7.0f, 0.0f, 7.0f));
+		model = glm::scale(model, glm::vec3(7.0f, 0.001f, 7.0f));
 
 		ourShader.setMat4("model", model);
 
@@ -467,7 +522,9 @@ int main()
 		glBindVertexArray(VAO_box[0]);
 
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex_wood);
+		glBindTexture(GL_TEXTURE_2D, tex_wood_diffuse);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, tex_wood_specular);
 
 		for(int tab = 0; tab < 5; tab++)
 		{	
@@ -507,17 +564,17 @@ int main()
 			glActiveTexture(GL_TEXTURE0);
 			if(tab == 0)
 			{	
-				glBindTexture(GL_TEXTURE_2D, tex_marble);
+				glBindTexture(GL_TEXTURE_2D, tex_marble_diffuse);
 			}
 			else
 			{
 				if(BUTTON_PRESSED == false)
 				{
-					glBindTexture(GL_TEXTURE_2D, tex_red_dark); 	// Not pressed
+					glBindTexture(GL_TEXTURE_2D, tex_red_dark_diffuse); 	// Not pressed
 				}
 				else
 				{
-					glBindTexture(GL_TEXTURE_2D, tex_red_bright);	// Pressed
+					glBindTexture(GL_TEXTURE_2D, tex_red_bright_diffuse);	// Pressed
 				}
 			}
 
@@ -538,7 +595,7 @@ int main()
 		glBindVertexArray(VAO_box[0]);
 
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex_curtin);
+		glBindTexture(GL_TEXTURE_2D, tex_curtin_diffuse);
 
 		//transformation for animation
 		if(BUTTON_PRESSED == true)
@@ -556,6 +613,22 @@ int main()
 
 		ourShader.setMat4("model", model);
 
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+
+		// Draw the light source
+		lamp_shader.use();
+		lamp_shader.setMat4("projection", projection);
+		lamp_shader.setMat4("view", view);
+		model = glm::mat4();
+		model = glm::translate(model, light_pos);
+		model = glm::scale(model, glm::vec3(0.01f)); // a smaller cube
+		lamp_shader.setMat4("model", model);
+
+		
+		if(BUTTON_PRESSED == true) lamp_shader.setFloat("intensity", 1.0);
+		else lamp_shader.setFloat("intensity", 0.3);
+
+		glBindVertexArray(VAO_light);
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 
 
@@ -722,34 +795,42 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
 
 //registering a new texture. You can modify this function to allow for more configuration options.
-void register_texture(unsigned int * tex, std::string path)
+unsigned int loadTexture(char const * path)
 {
-	glGenTextures(1, tex);
-	glBindTexture(GL_TEXTURE_2D, *tex);
-	// set the texture wrapping parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	unsigned int textureID;
+	glGenTextures(1, &textureID);
 
-
-	float borderColor [] = {1.0f, 1.0f, 1.0f, 1.0f};
-	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-	// set texture filtering parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	// load image, create texture and generate mipmaps
-	int width, height, nrChannels;
+	int width, height, nrComponents;
 	stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
-	unsigned char *data = stbi_load(FileSystem::getPath(path).c_str(), &width, &height, &nrChannels, 0);
+	unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
 	if (data)
 	{
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+		GLenum format;
+		if (nrComponents == 1)
+			format = GL_RED;
+		else if (nrComponents == 3)
+			format = GL_RGB;
+		else if (nrComponents == 4)
+			format = GL_RGBA;
+
+		glBindTexture(GL_TEXTURE_2D, textureID);
+		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
 		glGenerateMipmap(GL_TEXTURE_2D);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		stbi_image_free(data);
 	}
 	else
 	{
-		std::cout << "Failed to load texture" << std::endl;
+		std::cout << "Texture failed to load at path: " << path << std::endl;
+		stbi_image_free(data);
 	}
-	stbi_image_free(data);
+
+	return textureID;
 }
 
 //function to register bunch of textures from an array containing file names

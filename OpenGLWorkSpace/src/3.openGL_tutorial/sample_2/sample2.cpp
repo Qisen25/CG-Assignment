@@ -267,7 +267,7 @@ int main()
         	lighting_shader.setVec3("viewPos", camera_pos);
 
 		// light properties
-		lighting_shader.setVec3("light.ambient", 0.1f, 0.1f, 0.1f);
+		lighting_shader.setVec3("light.ambient", 1.0f, 1.0f, 1.0f);
 
 		if(BUTTON_PRESSED == true)
 		{
@@ -277,11 +277,11 @@ int main()
 		else
 		{
 			lighting_shader.setVec3("light.diffuse", 0.0f, 0.0f, 0.0f);
-			lighting_shader.setVec3("light.specular", 0.0f, 0.0f, 0.0f);
+			lighting_shader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
 		}
 
 		// material properties
-        	lighting_shader.setFloat("material.shininess", 65.0f);
+        	lighting_shader.setFloat("material.shininess", 100.0f);
 		// for now just set the same for every object. But, you can make it dynamic for various objects.
 
 
