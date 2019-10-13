@@ -78,19 +78,23 @@ const unsigned int SCR_HEIGHT = 800;
 
 //texture packs for models
 unsigned int sven_tex[SVEN_SIZE], sheep_tex[SHEEP_SIZE], light_tool_tex[2];
+unsigned int tex_wood_diffuse, tex_street_diffuse, tex_grass_diffuse, tex_marble_diffuse, tex_curtin_diffuse, tex_sky_diffuse;
+unsigned int tex_wood_specular, tex_street_specular, tex_grass_specular, tex_marble_specular, tex_curtin_specular;
 //vertex buffers allow global access for ease
 unsigned int VBO_box[2], VAO_box[2];
 unsigned int VAO_light;
 
-//lighting
-glm::vec3 light_pos(0.0f, 0.3f, 3.0f);
+//lighting starting position
+glm::vec3 light_pos(0.0f, 0.4f, 3.0f);
 
 // camera
 glm::vec3 camera_pos   = glm::vec3(0.0f, 0.9f,  3.0f);
 glm::vec3 camera_front = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 camera_up    = glm::vec3(0.0f, 1.0f,  0.0f);
+glm::vec3 last_placed;
 glm::vec3 last_pos;
 glm::mat4 prev_view;
+glm::vec3 sheep_direction;//global to allow sheep last direction to be stored
 
 //mouse settings
 bool firstMouse = true;
@@ -104,14 +108,17 @@ float fov   =  45.0f;
 float delta_time = 0.0f;	// time between current frame and last frame
 float last_frame = 0.0f;
 float jump_frame = 0.0f;
+float sheep_frame = 0.0f;
 int delay_jump = 0;
 bool isJump = false;
 bool descend = false;
+float move_sheep = 0.0f;
 
 //Toggle (Animation or states)
 bool BUTTON_PRESSED = false;
 int BUTTON_DELAY = 0;
 bool BUTTON_CLOSE_ENOUGH = false;
+bool LIGHT_IGNITED = true;
 
 //for collision detect
 bool PICKUP_LIGHT = false;
@@ -120,6 +127,8 @@ bool TORCH_NEAR = false;
 bool SVEN_NEAR = false;
 bool SVEN_TOUCHED = false;
 bool PICKUP_SVEN = false;
+bool FIRST_MOVE = true;
+bool PLAYER_DEAD = false;
 
 bool SHOW_COORDINATE = false;
 int SHOW_DELAY = 0;
@@ -189,6 +198,7 @@ void down_gravity()
 	}
 }
 
+
 // Toggle button pressing only if the camera is close enough.
 void toggle_button_distance(glm::vec3 button_pos)
 {
@@ -198,17 +208,45 @@ void toggle_button_distance(glm::vec3 button_pos)
 		BUTTON_CLOSE_ENOUGH = false;
 }
 
-bool obj_is_near(glm::vec3 obj_pos, float nearDist)
+//function to find if distance between camera and specified coord is near
+//specified range
+bool obj_near(glm::vec3 obj_pos, float nearDist)
 {
     bool isNear = false;
     if(glm::length(camera_pos - obj_pos) <= nearDist)
         isNear = true;
-    // else
-    //     isNear = false;
 
     return isNear;
 }
 
+//function for helping decide movement speed of watersheep
+//the amount the scalar value is incremented depends on distance of sheep to camera
+void sheep_mover(glm::vec3 watSheep)
+{	
+	//when getting distance, ignore the y axis since it never changes. keeping it may cause inaccuracy
+	float dist = glm::distance(glm::vec3(camera_pos.x, 0.0f, camera_pos.z), glm::vec3(watSheep.x, 0.0f, watSheep.z));
+	std::cout << "cam x " << camera_pos.x << std::endl;
+	std::cout << "direction x " << watSheep.x << std::endl;
+	// std::cout << "cam y " << camera_pos.y << std::endl;
+	// std::cout << "direction y"  << watSheep.y << std::endl;
+	std::cout << "cam z " << camera_pos.z << std::endl;
+	std::cout << "direction z" << watSheep.z << std::endl;
+	std::cout << "total dist " << dist << std::endl;
+
+	//if close enough to player, then player is dead
+	if(dist < 0.8f)
+	{
+		PLAYER_DEAD = true;
+	}
+	if(obj_near(watSheep, 2.0f) && !PLAYER_DEAD)
+	{
+		move_sheep += 0.005f; //increase scalar value
+	}
+	else if(glm::length(camera_pos - watSheep) > 2.0f && !PLAYER_DEAD)
+	{
+		move_sheep += 0.0015f;	
+	}
+}
 
 
 int main()
@@ -265,6 +303,7 @@ int main()
 	glGenVertexArrays(2, VAO_box);
 	glGenBuffers(2, VBO_box);
 
+	//defaultbox
 	glBindVertexArray(VAO_box[0]);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO_box[0]);
@@ -280,6 +319,8 @@ int main()
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
 	glEnableVertexAttribArray(2);
 
+	//use boxes coordinates that have textures that are position the same on the sides
+	//unlike box for tutorial which has textures rotated differently
 	glBindVertexArray(VAO_box[1]);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO_box[1]);
@@ -367,6 +408,8 @@ int main()
 		delta_time = currentFrame - last_frame;
 		last_frame = currentFrame;
 
+		// std::cout << currentFrame << std::endl;
+
 		//update delay countdown
 		update_delay();
 		jump_button_delay();//countdown jump delay since first jump
@@ -390,9 +433,9 @@ int main()
 
        	ourShader.setVec3("light.ambient", 0.1f, 0.1f, 0.1f);
 
-       	if(BUTTON_PRESSED == true)
+       	if(LIGHT_IGNITED == true)
 		{
-			ourShader.setVec3("light.diffuse", 0.8f, 0.8f, 0.8f);
+			ourShader.setVec3("light.diffuse", 1.0f, 1.0f, 1.0f);
 			ourShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
 		}
 		else
@@ -400,7 +443,7 @@ int main()
 			ourShader.setVec3("light.diffuse", 0.0f, 0.0f, 0.0f);
 			ourShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
 		}
-		ourShader.setFloat("material.shininess", 100.0f);
+		ourShader.setFloat("material.shininess", 65.0f);
 
        //projection transformation
         glm::mat4 projection; 
@@ -543,6 +586,8 @@ int main()
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
 
+		//function to draw sven,light source, water sheep and any other model
+		//this is just to make while loop less cluttered
         draw_models(ourShader, view, projection, lamp_shader);
 
 		//Button on table (1 big box & 1 small box as button)
@@ -569,17 +614,26 @@ int main()
 			glActiveTexture(GL_TEXTURE0);
 			if(tab == 0)
 			{	
+				glActiveTexture(GL_TEXTURE0);
 				glBindTexture(GL_TEXTURE_2D, tex_marble_diffuse);
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, tex_marble_specular);
 			}
 			else
 			{
-				if(BUTTON_PRESSED == false)
+				if(BUTTON_PRESSED == false) 	// Not Pressed
 				{
-					glBindTexture(GL_TEXTURE_2D, tex_red_dark_diffuse); 	// Not pressed
+					glActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, tex_red_dark_diffuse);
+					glActiveTexture(GL_TEXTURE1);
+					glBindTexture(GL_TEXTURE_2D, tex_red_dark_specular);
 				}
-				else
+				else				// Pressed
 				{
-					glBindTexture(GL_TEXTURE_2D, tex_red_bright_diffuse);	// Pressed
+					glActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, tex_red_bright_diffuse);
+					glActiveTexture(GL_TEXTURE1);
+					glBindTexture(GL_TEXTURE_2D, tex_red_bright_specular);
 				}
 			}
 
@@ -601,6 +655,8 @@ int main()
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, tex_curtin_diffuse);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, tex_curtin_specular);
 
 		//transformation for animation
 		if(BUTTON_PRESSED == true)
@@ -612,9 +668,9 @@ int main()
 		}
 
 		model = glm::mat4();
-		model = glm::translate(model, glm::vec3(0.0f, 0.8f + (0.1f * sin(curtin_translate_y * PI / 180.f)), -0.35f));
+		model = glm::translate(model, glm::vec3(0.0f, 0.9f + (0.1f * sin(curtin_translate_y * PI / 180.f)), -0.35f));
 		model = glm::rotate(model, glm::radians(curtin_rotate_y), glm::vec3(0.0f, 1.0f, 0.0f));
-		model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.0f));
+		model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.001f));
 
 		ourShader.setMat4("model", model);
 
@@ -622,7 +678,7 @@ int main()
 
 
 		
-		if(BUTTON_PRESSED == true) lamp_shader.setFloat("intensity", 5.0);
+		if(LIGHT_IGNITED == true) lamp_shader.setFloat("intensity", 5.0);
 		else lamp_shader.setFloat("intensity", 0.3);
 
 		
@@ -712,7 +768,7 @@ void process_input(GLFWwindow *window)
             if(pitch >= -60.0f && pitch < -52.0f)
             {
                PICKUP_LIGHT = false;
-               last_pos =  camera_pos + camera_front;
+               last_placed =  camera_pos + camera_front;
             }
         }
     }
@@ -739,6 +795,15 @@ void process_input(GLFWwindow *window)
             isPerspec = true;
         }
     }
+
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS && BUTTON_DELAY == 0 && PICKUP_LIGHT == true)
+	{
+		BUTTON_DELAY = 20;
+		if(LIGHT_IGNITED == false) 		
+			LIGHT_IGNITED = true;
+		else
+			LIGHT_IGNITED = false;
+	}
 }
 
 // glfw: whenever the mouse moves, this callback is called
@@ -836,20 +901,6 @@ void register_tex_pack(unsigned int * tex, std::string path, int size, const std
 
 	for(i = 0; i < size; i++)
 	{
-		// std::cout << pack[i] << std::endl;
-		// glGenTextures(1, &tex[i]);
-		// glBindTexture(GL_TEXTURE_2D, tex[i]);
-		// // set the texture wrapping parameters
-		// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-		// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-
-		// float borderColor [] = {1.0f, 1.0f, 1.0f, 1.0f};
-		// glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-		// // set texture filtering parameters
-		// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		// load image, create texture and generate mipmaps
-
 		glGenTextures(1, &tex[i]);
 
 		int width, height, nrComponents;
@@ -909,30 +960,32 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
     {   
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, light_tool_tex[tab]);
+        glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, tex_curtin_specular);
         glm::mat4 lightSaber = glm::mat4();
         
-        if(PICKUP_LIGHT == false)
+        if(!PICKUP_LIGHT)
         {
             //if light has never been touched then put it at default location
-            if(LIGHT_TOUCHED == false)
+            if(!LIGHT_TOUCHED)
             {
                 lightSaber = glm::translate(lightSaber, glm::vec3(0.0f, 0.1f, 3.0f));  
-                TORCH_NEAR = obj_is_near(glm::vec3(0.0f, 0.1f, 3.0f), 1.6f);//collision detection
+                TORCH_NEAR = obj_near(glm::vec3(0.0f, 0.1f, 3.0f), 1.6f);//collision detection
             }
             else //otherwise light not at default location, render at last location placed
             {
-                tempY = glm::abs(last_pos.y);//make sure position above ground
+                tempY = glm::abs(last_placed.y);//make sure position above ground
                 
                 if(tempY < 0.02f)
                     tempY += 0.03f;//makes sure object does go below ground
 
                 // std::cout << tempY << std::endl;
-                lightSaber = glm::translate(lightSaber, glm::vec3(last_pos.x, tempY + 0.01, last_pos.z));  
-                light_pos = glm::vec3(last_pos.x, tempY, last_pos.z);  
-                TORCH_NEAR = obj_is_near(glm::vec3(last_pos.x, tempY, last_pos.z), 1.6f); //collision detection
+                lightSaber = glm::translate(lightSaber, glm::vec3(last_placed.x, tempY + 0.01, last_placed.z));  
+                light_pos = glm::vec3(last_placed.x, tempY + 0.4, last_placed.z);  
+                TORCH_NEAR = obj_near(glm::vec3(last_placed.x, tempY, last_placed.z), 1.6f); //collision detection
             }
         }
-        else
+        else//player carrying light
         {
             //inverse of view allows view camera matrix points to be used in model space
             //since the view matrix is inverse of model space, bringing model to view
@@ -941,7 +994,7 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
             lightSaber =  prev_view * lightSaber; //bring the lightsaber to the view/camera space
             light_pos = glm::vec3(camera_pos.x, camera_pos.y, camera_pos.z);
         }
-	    if(tab == 1 && BUTTON_PRESSED)
+	    if(tab == 1 && LIGHT_IGNITED)
 	    {
         	// std::cout << tab << std::endl;
         	glBindVertexArray(VAO_light);
@@ -983,8 +1036,8 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
         glm::vec3( 0.08f,  0.3f,  0.08f),   //left back leg
         glm::vec3( 0.1f,  0.02f,  0.1f),//jaw
         glm::vec3( 0.02f,  0.02f,  0.02f),//nose
-        glm::vec3( 0.05f,  0.03f,  0.0f),//left eye
-        glm::vec3( 0.05f,  0.03f,  0.0f),//right eye
+        glm::vec3( 0.05f,  0.03f,  0.0001f),//left eye
+        glm::vec3( 0.05f,  0.03f,  0.0001f),//right eye
     };
 
     glm::vec3 sven_positions[] = {
@@ -1012,6 +1065,8 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
     {   
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, sven_tex[tab]);
+        glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, tex_grass_specular);
 
         // std::cout << tab << std::endl;
         //translate first then scale or rotate
@@ -1020,17 +1075,12 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
         
         if(PICKUP_SVEN == false)
         {
-            //if light has never been touched then put it at default location
-            if(SVEN_TOUCHED == false)
-            {
-                sven = glm::translate(sven, glm::vec3(-2.0f, 0.3f, 0.0f));  
-                SVEN_NEAR = obj_is_near(glm::vec3(-2.0f, 0.3f, 0.0f), 1.6f);//collision detection
-                // std::cout << SVEN_NEAR << std::endl;
-            }
+            sven = glm::translate(sven, glm::vec3(-2.0f, 0.3f, 0.0f));  
+            SVEN_NEAR = obj_near(glm::vec3(-2.0f, 0.3f, 0.0f), 1.6f);//collision detection
+            // std::cout << SVEN_NEAR << std::endl;
         }
         else
-        {
-             
+        {     
             //inverse of view allows view camera matrix points to be used in model space
             //since the view matrix is inverse of model space, bringing model to view
             prev_view = glm::inverse(view);
@@ -1065,7 +1115,7 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
         glm::vec3( 0.35f,  0.25f,  0.55f),  //body
         glm::vec3( 0.2f,  0.2f,  0.2f),//wool head
         glm::vec3( 0.16f,  0.16f,  0.02f),//head face
-        glm::vec3( 0.16f,  0.16f,  0.0f),//face
+        glm::vec3( 0.16f,  0.16f,  0.001f),//face
         glm::vec3( 0.14f,  0.14f,  0.14f),  //right front leg
         glm::vec3( 0.14f,  0.14f,  0.14f),//left front leg
         glm::vec3( 0.14f,  0.14f,  0.14f),  //right back leg
@@ -1090,18 +1140,55 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
 
     glBindVertexArray(VAO_box[0]);
 
+    //specify sheep start location in world
+    glm::vec3 sheep_start_location = glm::vec3(2.08f, 0.1f, -2.32f);
+
     for(int tab = 0; tab < 12; tab++)
     {   
         glm::mat4 sheep = glm::mat4();
+        
+        if(PICKUP_SVEN)
+        {
+        	glm::vec3 direction = glm::normalize(glm::vec3(camera_pos - sheep_start_location));
+        	float angle = glm::atan(direction.x, direction.z);
 
-        //opengl column vector, must do opposite order of row vector
-        sheep = glm::translate(sheep, glm::vec3(2.0f, -0.15f, -6.5f));
-        sheep = glm::translate(sheep, glm::vec3(0.08f, 0.25f, 4.18f));//put back
-        sheep= glm::rotate(sheep, glm::radians(90.0f), glm::vec3(0.0, 1.0, 0.0));
+	        // if player is not dead then sheep follows player
+	        if(!PLAYER_DEAD)
+	        {	
+	        	//add sheep starting position to direction matrix, result of this will give the actual 
+	        	//position of the sheep instead of direction and which will help get correct distance
+	        	//between the camera and sheep
+	        	sheep_mover(sheep_direction  + sheep_start_location);//calculate move_sheep scalar variable
+	        	sheep_direction = glm::vec3(direction.x, 0.0f, direction.z) * move_sheep; 
+	        	sheep = glm::translate(sheep, sheep_direction);
+	        }
+	        else //player is dead, sheep will be at location since hitting player
+	        {
+	        	//adding direction and start direction gives current position of sheep
+	        	direction = glm::normalize(glm::vec3(camera_pos - (sheep_direction + sheep_start_location)));
+	        	sheep = glm::translate(sheep, sheep_direction);
+	        	angle = glm::atan(direction.x, direction.z);
+	        }
+	        
+  			//opengl column vector, must do opposite order of row vector
+		    sheep = glm::translate(sheep, sheep_start_location);//put to desired starting place in the world
+		    sheep = glm::rotate(sheep, angle, glm::vec3(0.0f, 1.0f, 0.0f)); //rotate accordingly when camera pos moves
+		    sheep= glm::rotate(sheep, glm::radians(180.0f), glm::vec3(0.0, 1.0, 0.0));//make sheep face the camera
+	    }
+	    else//default location
+	   	{
+	   		sheep = glm::translate(sheep, sheep_start_location);//put to desired starting place in the world
+	   		sheep= glm::rotate(sheep, glm::radians(90.0f), glm::vec3(0.0, 1.0, 0.0));
+	   	}
+
         sheep = glm::translate(sheep, glm::vec3(0.08f, -0.25f, -4.18f));//move to origins
         sheep = glm::translate(sheep, sheep_positions[tab]);//start
-        // sheep = glm::translate(sheep, glm::vec3(0.08f, -0.25f, -4.18f));
-        //index positions less than 8 are different models
+        // if(tab == 3)
+        // {
+        	glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, tex_grass_specular);
+        // }
+
         if(tab < 9)
         {
              sheep = glm::scale(sheep, sheep_scales[tab]);

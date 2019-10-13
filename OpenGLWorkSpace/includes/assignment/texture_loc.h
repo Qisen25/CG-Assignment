@@ -5,6 +5,7 @@
 #define SVEN_SIZE 15
 #define SHEEP_SIZE 9
 
+//REFERENCE: textures are obtained from google images
 const std::string sven_files[SVEN_SIZE] =
 {
 	"1_head.jpg",
