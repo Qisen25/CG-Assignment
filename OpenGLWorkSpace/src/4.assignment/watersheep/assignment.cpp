@@ -113,6 +113,7 @@ int delay_jump = 0;
 bool isJump = false;
 bool descend = false;
 float move_sheep = 0.0f;
+float walk_frame = 0.0f;
 
 //Toggle (Animation or states)
 bool BUTTON_PRESSED = false;
@@ -129,6 +130,7 @@ bool SVEN_TOUCHED = false;
 bool PICKUP_SVEN = false;
 bool FIRST_MOVE = true;
 bool PLAYER_DEAD = false;
+bool switchLeg = false;
 
 bool SHOW_COORDINATE = false;
 int SHOW_DELAY = 0;
@@ -217,6 +219,23 @@ bool obj_near(glm::vec3 obj_pos, float nearDist)
         isNear = true;
 
     return isNear;
+}
+
+float walk_animation()
+{
+	float rot;
+	if(!switchLeg)
+	{
+		rot = (float)(2.0f * fabs(fmod((float)glfwGetTime(), 1.0f) - 0.5f)) * 0.5f;
+		switchLeg = true;
+	}
+	else
+	{
+		rot = -(float)(2.0f * fabs(fmod((float)glfwGetTime(), 1.0f) - 0.5f)) * 0.5f;
+		switchLeg = false;
+	}
+
+	return rot;
 }
 
 //function for helping decide movement speed of watersheep
@@ -1173,6 +1192,7 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
   			//opengl column vector, must do opposite order of row vector
 		    sheep = glm::translate(sheep, sheep_start_location);//put to desired starting place in the world
 		    sheep = glm::rotate(sheep, angle, glm::vec3(0.0f, 1.0f, 0.0f)); //rotate accordingly when camera pos moves
+		    
 		    sheep= glm::rotate(sheep, glm::radians(180.0f), glm::vec3(0.0, 1.0, 0.0));//make sheep face the camera
 	    }
 	    else//default location
@@ -1181,8 +1201,13 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
 	   		sheep= glm::rotate(sheep, glm::radians(90.0f), glm::vec3(0.0, 1.0, 0.0));
 	   	}
 
+	   	
         sheep = glm::translate(sheep, glm::vec3(0.08f, -0.25f, -4.18f));//move to origins
         sheep = glm::translate(sheep, sheep_positions[tab]);//start
+        if(tab > 7 && !PLAYER_DEAD)
+        {
+        	sheep= glm::rotate(sheep, walk_animation(), glm::vec3(1.0, 0.0, 0.0));
+        }
         // if(tab == 3)
         // {
         	glActiveTexture(GL_TEXTURE1);
