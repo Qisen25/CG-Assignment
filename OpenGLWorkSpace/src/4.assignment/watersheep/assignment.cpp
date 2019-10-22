@@ -221,19 +221,22 @@ bool obj_near(glm::vec3 obj_pos, float nearDist)
     return isNear;
 }
 
-float walk_animation()
+float walk_animation(float rotDelta, int obj_pos)
 {
 	float rot;
-	if(!switchLeg)
+	if(obj_pos % 2 == 0)
 	{
-		rot = (float)(2.0f * fabs(fmod((float)glfwGetTime(), 1.0f) - 0.5f)) * 0.5f;
-		switchLeg = true;
+		rot = glm::sin(glfwGetTime() * 20.0f) * rotDelta;
+		// std::cout << "time " << glfwGetTime() << std::endl;
+		// std::cout << "sine " << glm::sin(glfwGetTime() * 20.0f) << std::endl;
+		// std::cout << "Rot " << rot << std::endl;
 	}
 	else
 	{
-		rot = -(float)(2.0f * fabs(fmod((float)glfwGetTime(), 1.0f) - 0.5f)) * 0.5f;
-		switchLeg = false;
+		rot = -(glm::sin(glfwGetTime() * 20.0f) * rotDelta);
+		// std::cout << glfwGetTime() << std::endl;
 	}
+	// std::cout << rot << std::endl;
 
 	return rot;
 }
@@ -1139,7 +1142,7 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
         glm::vec3( 0.14f,  0.14f,  0.14f),//left front leg
         glm::vec3( 0.14f,  0.14f,  0.14f),  //right back leg
         glm::vec3( 0.14f,  0.14f,  0.14f),  //left back leg
-        glm::vec3( 0.1f,  0.2f,  0.1f),  //lower leg
+        glm::vec3( 0.1f,  0.15f,  0.1f),  //lower leg
     };
 
     glm::vec3 sheep_positions[] = {
@@ -1151,10 +1154,10 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
         glm::vec3(-0.08f, 0.328f, 3.85f),   //6. l front leg
         glm::vec3( 0.08f, 0.328f,  4.18f),  //7. r back leg
         glm::vec3( -0.08f, 0.328f,  4.18f), //8. l back leg
-        glm::vec3( 0.08f, 0.25f,  3.85f),  //9. r front low leg
-        glm::vec3( -0.08f, 0.25f,  3.85f),  //10. l front low leg
-        glm::vec3( 0.08f, 0.25f,  4.18f),  //11. r back low leg
-        glm::vec3( -0.08f, 0.25f,  4.18f), //12. l back low leg
+        glm::vec3( 0.08f, 0.215f,  3.85f),  //9. r front low leg
+        glm::vec3( -0.08f, 0.218f,  3.85f),  //10. l front low leg
+        glm::vec3( 0.08f, 0.218f,  4.18f),  //11. r back low leg
+        glm::vec3( -0.08f, 0.218f,  4.18f), //12. l back low leg
     };
 
     glBindVertexArray(VAO_box[0]);
@@ -1204,9 +1207,17 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
 	   	
         sheep = glm::translate(sheep, glm::vec3(0.08f, -0.25f, -4.18f));//move to origins
         sheep = glm::translate(sheep, sheep_positions[tab]);//start
-        if(tab > 7 && !PLAYER_DEAD)
+
+        //walk animation when chasing player
+        if(tab > 7 && !PLAYER_DEAD)// lower leg
         {
-        	sheep= glm::rotate(sheep, walk_animation(), glm::vec3(1.0, 0.0, 0.0));
+        	sheep = glm::translate(sheep, glm::vec3( 0.0f,  0.15f,  0.0f));//move back to previous y
+        	sheep= glm::rotate(sheep, walk_animation(0.3f, tab), glm::vec3(1.0, 0.0, 0.0));//do rotaton animation
+        	sheep = glm::translate(sheep, glm::vec3( 0.0f,  -0.15f,  0.0f));//move top of leg to origin y
+        }
+        if(tab > 3 && tab < 8 && !PLAYER_DEAD)// upper leg
+        {
+        	sheep= glm::rotate(sheep, walk_animation(0.4f, tab), glm::vec3(1.0, 0.0, 0.0));
         }
         // if(tab == 3)
         // {
