@@ -91,7 +91,7 @@ glm::vec3 light_pos(0.0f, 0.4f, 3.0f);
 glm::vec3 camera_pos   = glm::vec3(0.0f, 0.9f,  3.0f);
 glm::vec3 camera_front = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 camera_up    = glm::vec3(0.0f, 1.0f,  0.0f);
-glm::vec3 last_placed;
+glm::vec3 last_placed_light;
 glm::vec3 last_pos;
 glm::mat4 prev_view;
 glm::vec3 sheep_direction;//global to allow sheep last direction to be stored
@@ -108,12 +108,10 @@ float fov   =  45.0f;
 float delta_time = 0.0f;	// time between current frame and last frame
 float last_frame = 0.0f;
 float jump_frame = 0.0f;
-float sheep_frame = 0.0f;
 int delay_jump = 0;
 bool isJump = false;
 bool descend = false;
 float move_sheep = 0.0f;
-float walk_frame = 0.0f;
 
 //Toggle (Animation or states)
 bool BUTTON_PRESSED = false;
@@ -128,9 +126,7 @@ bool TORCH_NEAR = false;
 bool SVEN_NEAR = false;
 bool SVEN_TOUCHED = false;
 bool PICKUP_SVEN = false;
-bool FIRST_MOVE = true;
 bool PLAYER_DEAD = false;
-bool switchLeg = false;
 
 bool SHOW_COORDINATE = false;
 int SHOW_DELAY = 0;
@@ -764,6 +760,19 @@ void process_input(GLFWwindow *window)
 			BUTTON_PRESSED = true;
 		else
 			BUTTON_PRESSED = false;
+
+		PICKUP_LIGHT = false;
+		LIGHT_TOUCHED =false;
+		TORCH_NEAR = false;
+		SVEN_NEAR = false;
+		SVEN_TOUCHED = false;
+		PICKUP_SVEN = false;
+		PLAYER_DEAD = false;
+		sheep_direction = glm::vec3(0.0f, 0.0f, 0.0f);
+		move_sheep = 0.0f;
+		camera_pos   = glm::vec3(0.0f, 0.9f,  3.0f);
+		camera_front = glm::vec3(0.0f, 0.0f, -1.0f);
+		camera_up    = glm::vec3(0.0f, 1.0f,  0.0f);
 	}
 
 	//toggle coordinate visibility
@@ -790,7 +799,7 @@ void process_input(GLFWwindow *window)
             if(pitch >= -60.0f && pitch < -52.0f)
             {
                PICKUP_LIGHT = false;
-               last_placed =  camera_pos + camera_front;
+               last_placed_light =  camera_pos + camera_front;
             }
         }
     }
@@ -970,11 +979,6 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
         glm::vec3(0.0f, 0.11f,  0.0f),    //source
     };
 
-    // glm::vec3 light_tool_positions[] = {
-    //     glm::vec3( camera_pos.x,  0.0f + (camera_pos.y),  camera_pos.z),     //hilt
-    //     glm::vec3(camera_pos.x, 0.11f + (camera_pos.y),  camera_pos.z),    //source
-    // };
-
     glBindVertexArray(VAO_box[1]);
     float tempY = 0.0f;
 
@@ -996,15 +1000,15 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
             }
             else //otherwise light not at default location, render at last location placed
             {
-                tempY = glm::abs(last_placed.y);//make sure position above ground
+                tempY = glm::abs(last_placed_light.y);//make sure position above ground
                 
                 if(tempY < 0.02f)
                     tempY += 0.03f;//makes sure object does go below ground
 
                 // std::cout << tempY << std::endl;
-                lightSaber = glm::translate(lightSaber, glm::vec3(last_placed.x, tempY + 0.01, last_placed.z));  
-                light_pos = glm::vec3(last_placed.x, tempY + 0.4, last_placed.z);  
-                TORCH_NEAR = obj_near(glm::vec3(last_placed.x, tempY, last_placed.z), 1.6f); //collision detection
+                lightSaber = glm::translate(lightSaber, glm::vec3(last_placed_light.x, tempY + 0.01, last_placed_light.z));  
+                light_pos = glm::vec3(last_placed_light.x, tempY + 0.4, last_placed_light.z);  
+                TORCH_NEAR = obj_near(glm::vec3(last_placed_light.x, tempY, last_placed_light.z), 1.6f); //collision detection
             }
         }
         else//player carrying light
@@ -1014,8 +1018,9 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
             prev_view = glm::inverse(view);
             lightSaber = glm::translate(lightSaber, glm::vec3(0.1f, -0.1f, -0.3f));
             lightSaber =  prev_view * lightSaber; //bring the lightsaber to the view/camera space
-            light_pos = glm::vec3(camera_pos.x, camera_pos.y, camera_pos.z);
+            light_pos = glm::vec3(camera_pos.x, camera_pos.y, camera_pos.z);//light follow camera
         }
+        //light source
 	    if(tab == 1 && LIGHT_IGNITED)
 	    {
         	// std::cout << tab << std::endl;
@@ -1025,13 +1030,13 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
 	    	lamp_shader.setMat4("projection", projection);
 			lamp_shader.setMat4("view", view);
 			
-			lightSaber = glm::translate(lightSaber, light_tool_positions[tab]); //model part positioning
-			lightSaber = glm::scale(lightSaber, light_tool_scales[tab]); // a smaller cube
+			lightSaber = glm::translate(lightSaber, light_tool_positions[tab]); //source model part positioning
+			lightSaber = glm::scale(lightSaber, light_tool_scales[tab]); // light source scale
 			lamp_shader.setMat4("model", lightSaber);
 			
 			glDrawArrays(GL_TRIANGLES, 0, 36);
         }
-        else if(tab != 1)
+        else if(tab != 1)//hilt
         {
 	    	lightSaber = glm::translate(lightSaber, light_tool_positions[tab]); //model part positioning
 	        lightSaber = glm::scale(lightSaber, light_tool_scales[tab]);//model scale
@@ -1111,13 +1116,13 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
             sven = glm::translate(sven, glm::vec3(-0.3f, -0.1f, -0.4f));   
             sven = glm::rotate(sven, glm::radians(-95.0f), glm::vec3(0.0f, 1.0f, 0.0f));         
             sven = glm::scale(sven, glm::vec3(0.5f, 0.5f, 0.5f));
-            sven =  prev_view * sven; //bring the lightsaber to the view/camera space
+            sven =  prev_view * sven; //bring sven to the view/camera space
         }
 
         sven = glm::translate(sven, glm::vec3(0.0f, -0.8f, -1.2f)); 
         sven = glm::translate(sven, sven_positions[tab]);
         sven = glm::scale(sven, sven_scales[tab]);
-        if(tab == 13)
+        if(tab == 13)//eyes
         {
             sven = glm::rotate(sven, glm::radians(90.0f), glm::vec3(0.0, 0.0, 1.0));
         }
@@ -1142,7 +1147,7 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
         glm::vec3( 0.14f,  0.14f,  0.14f),//left front leg
         glm::vec3( 0.14f,  0.14f,  0.14f),  //right back leg
         glm::vec3( 0.14f,  0.14f,  0.14f),  //left back leg
-        glm::vec3( 0.1f,  0.15f,  0.1f),  //lower leg
+        glm::vec3( 0.1f,  0.12f,  0.1f),  //lower leg
     };
 
     glm::vec3 sheep_positions[] = {
