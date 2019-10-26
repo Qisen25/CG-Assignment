@@ -71,7 +71,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 unsigned int loadTexture(char const * path);
 
 void register_tex_pack(unsigned int * tex, std::string path, int size, const std::string pack[]);
-void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader lamp_shader);
+void draw_models(Shader *ourShader, glm::mat4 view, glm::mat4 projection, Shader lamp_shader);
 
 // settings
 const unsigned int SCR_WIDTH = 800;
@@ -119,6 +119,7 @@ bool BUTTON_PRESSED = false;
 int BUTTON_DELAY = 0;
 bool BUTTON_CLOSE_ENOUGH = false;
 bool LIGHT_IGNITED = true;
+bool LIGHTING_ACTIVE = true;
 
 //for collision detect
 bool PICKUP_LIGHT = false;
@@ -136,6 +137,10 @@ bool isPerspec = true;
 //Animation Variables
 float curtin_rotate_y = 0.0;
 float curtin_translate_y = 0.0;
+
+//illuminations variables
+float LINEAR_ATT = 0.35;
+float QUAD_ATT = 0.44;
 
 // Countdown until the button trigger can be pressed again.
 // This prevents accidental burst repeat clicking of the key.
@@ -312,7 +317,9 @@ int main()
 
 	// build and compile our shader zprogram
 	// ------------------------------------
-	Shader ourShader("./shader.vs", "./shader.fs");
+	Shader *ourShader;//pointer to shader, makes switching between dark and bright shaders easier without having to create a new instance each render
+	Shader darkShader("./lighting.vs", "./lighting.fs");//default which is dark scenery
+	Shader brightShader("./noLighting.vs", "./noLighting.fs");// switch to bright scene
 	Shader lamp_shader("./lamp.vs", "./lamp.fs");
 
 
@@ -412,9 +419,9 @@ int main()
 
 	// tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
 	// -------------------------------------------------------------------------------------------
-	ourShader.use();
-	ourShader.setInt("material.diffuse", 0);
-	ourShader.setInt("material.specular", 1);
+	// ourShader->use();
+	// ourShader->setInt("material.diffuse", 0);
+	// ourShader->setInt("material.specular", 1);
 	// pass projection matrix to shader (as projection matrix rarely changes there's no need to do this per frame)
 	// -----------------------------------------------------------------------------------------------------------
 
@@ -447,24 +454,40 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
 
 
-		// activate shader
-		ourShader.use();
-		ourShader.setVec3("light.position", light_pos);
-       	ourShader.setVec3("viewPos", camera_pos);
-
-       	ourShader.setVec3("light.ambient", 0.1f, 0.1f, 0.1f);
-
-       	if(LIGHT_IGNITED == true)
+		// select and activate shader
+		if(LIGHTING_ACTIVE)
 		{
-			ourShader.setVec3("light.diffuse", 1.0f, 1.0f, 1.0f);
-			ourShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+			ourShader = &darkShader; //use the darkShader (shader utilising lighting), by pointing to address
+			ourShader->use();
+			ourShader->setInt("material.diffuse", 0);
+			ourShader->setInt("material.specular", 1);
+
+	       	ourShader->setVec3("light.position", light_pos);
+	       	ourShader->setVec3("light.ambient", 0.1f, 0.1f, 0.1f);
+
+	       	if(LIGHT_IGNITED == true)
+			{
+				ourShader->setVec3("light.diffuse", 0.8f, 0.8f, 0.8f);
+				ourShader->setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+			}
+			else
+			{
+				ourShader->setVec3("light.diffuse", 0.0f, 0.0f, 0.0f);
+				ourShader->setVec3("light.specular", 0.0f, 0.0f, 0.0f);
+			}
+			ourShader->setFloat("light.constant", 1.0f);
+			ourShader->setFloat("light.linear", LINEAR_ATT);
+			ourShader->setFloat("light.quadratic", QUAD_ATT);
+
+			ourShader->setFloat("material.shininess", 65.0f);
 		}
 		else
 		{
-			ourShader.setVec3("light.diffuse", 0.0f, 0.0f, 0.0f);
-			ourShader.setVec3("light.specular", 0.5f, 0.5f, 0.5f);
+			ourShader = &brightShader;//use bright shader (shader not utilising lighting)
+			ourShader->use();
 		}
-		ourShader.setFloat("material.shininess", 65.0f);
+
+		ourShader->setVec3("viewPos", camera_pos);
 
        //projection transformation
         glm::mat4 projection; 
@@ -476,11 +499,11 @@ int main()
         {
             projection = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -10.0f, 200.0f);
         }
-        ourShader.setMat4("projection", projection);
+        ourShader->setMat4("projection", projection);
 
 		// camera/view transformation
 		glm::mat4 view = glm::lookAt(camera_pos, camera_pos + camera_front, camera_up);
-		ourShader.setMat4("view", view);
+		ourShader->setMat4("view", view);
 
 		//declare transformation matrix
 		glm::mat4 model = glm::mat4();
@@ -503,7 +526,7 @@ int main()
 		// model = glm::mat4();
 		// model = glm::scale(model, glm::vec3(200.0f, 200.0f, 200.0f));
 
-		// ourShader.setMat4("model", model);
+		// ourShader->setMat4("model", model);
 
 		// glDrawArrays(GL_TRIANGLES, 0, 36);
 
@@ -531,7 +554,7 @@ int main()
 				model = glm::mat4();
 				model = glm::scale(model, coord_scales[tab]);
 
-				ourShader.setMat4("model", model);
+				ourShader->setMat4("model", model);
 
 				glDrawArrays(GL_TRIANGLES, 0, 36);
 			}
@@ -549,8 +572,8 @@ int main()
 		model = glm::mat4();
 		model = glm::scale(model, glm::vec3(3.0f, 0.001f, 7.0f));
 
-		ourShader.setFloat("material.shininess", 10.0f);
-		ourShader.setMat4("model", model);
+		ourShader->setFloat("material.shininess", 10.0f);
+		ourShader->setMat4("model", model);
 
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 
@@ -576,7 +599,7 @@ int main()
 				model = glm::translate(model, glm::vec3(gridX, -0.01f, gridZ));
 				model = glm::scale(model, glm::vec3(10.0f, 0.001f, 10.0f));
 
-				ourShader.setMat4("model", model);
+				ourShader->setMat4("model", model);
 
 				glDrawArrays(GL_TRIANGLES, 0, 36);
 				gridZ -= 10.0f;// move up ten on z axis
@@ -617,7 +640,7 @@ int main()
 			model = glm::scale(model, table_scales[tab]);
 			model = glm::translate(model, glm::vec3(0.0f, 0.5f, 0.0f));
 
-			ourShader.setMat4("model", model);
+			ourShader->setMat4("model", model);
 
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
@@ -679,8 +702,8 @@ int main()
 			model = glm::scale(model, button_scales[tab]);
 			model = glm::translate(model, glm::vec3(0.0f, 0.5f, 0.0f));
 
-			ourShader.setFloat("material.shininess", 65.0f);
-			ourShader.setMat4("model", model);
+			ourShader->setFloat("material.shininess", 65.0f);
+			ourShader->setMat4("model", model);
 
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
@@ -709,8 +732,8 @@ int main()
 		model = glm::rotate(model, glm::radians(curtin_rotate_y), glm::vec3(0.0f, 1.0f, 0.0f));
 		model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.001f));
 
-		ourShader.setFloat("material.shininess", 100.0f);
-		ourShader.setMat4("model", model);
+		ourShader->setFloat("material.shininess", 100.0f);
+		ourShader->setMat4("model", model);
 
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 
@@ -766,6 +789,7 @@ void process_input(GLFWwindow *window)
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 		camera_pos += glm::normalize(glm::cross(camera_front, camera_up)) * cameraSpeed;
 
+	//jump
 	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && !isJump && delay_jump == 0)
 	{
 		jump_frame = glfwGetTime();
@@ -806,6 +830,7 @@ void process_input(GLFWwindow *window)
 			SHOW_COORDINATE = false;
 	}
 
+	//pick up light source
     if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS && SHOW_DELAY == 0 && TORCH_NEAR)
     {
         SHOW_DELAY = 30;
@@ -825,6 +850,7 @@ void process_input(GLFWwindow *window)
         }
     }
 
+    //pickup sven
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS && SHOW_DELAY == 0 && SVEN_NEAR)
     {
         SHOW_DELAY = 30;
@@ -835,6 +861,7 @@ void process_input(GLFWwindow *window)
         }
     }
 
+    //perspective or orthographic
     if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS && SHOW_DELAY == 0)
     {
         SHOW_DELAY = 30;
@@ -848,6 +875,7 @@ void process_input(GLFWwindow *window)
         }
     }
 
+    //ignite lightsaber
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS && BUTTON_DELAY == 0 && PICKUP_LIGHT == true)
 	{
 		BUTTON_DELAY = 20;
@@ -855,6 +883,44 @@ void process_input(GLFWwindow *window)
 			LIGHT_IGNITED = true;
 		else
 			LIGHT_IGNITED = false;
+	}
+
+	//decrease attenuation brightness
+	if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS && BUTTON_DELAY == 0)
+	{
+		BUTTON_DELAY = 20;
+		//if attributes are above 9, no point of decreasing further since it makes no difference
+		if(LINEAR_ATT < 9.0f || QUAD_ATT < 1.0f)
+		{
+			LINEAR_ATT /= 0.8f;
+			QUAD_ATT /= 0.8f;
+		}
+		std::cout << "LINEAR- " << LINEAR_ATT << std::endl;
+		std::cout << "QUAD- " << QUAD_ATT << std::endl;
+	}
+
+	//increase attenuation brightness
+	if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS && BUTTON_DELAY == 0)
+	{
+		BUTTON_DELAY = 20;
+		//multiply to make sure attributes never go negative
+		if(LINEAR_ATT > 0.006f || QUAD_ATT > 0.008f)// no point decreasing futher since it makes no diff after these
+		{
+			LINEAR_ATT *= 0.8f;
+			QUAD_ATT *= 0.8f;
+		}
+		std::cout << "LINEAR+ " << LINEAR_ATT << std::endl;
+		std::cout << "QUAD+ " << QUAD_ATT << std::endl;
+	}
+
+		//switch dark and bright scenery
+    if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS && BUTTON_DELAY == 0)
+	{
+		BUTTON_DELAY = 20;
+		if(LIGHTING_ACTIVE == false) 		
+			LIGHTING_ACTIVE = true;
+		else
+			LIGHTING_ACTIVE = false;
 	}
 }
 
@@ -987,7 +1053,7 @@ void register_tex_pack(unsigned int * tex, std::string path, int size, const std
 }
 
 //function to draw models, makes code look neater
-void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader lamp_shader)
+void draw_models(Shader *ourShader, glm::mat4 view, glm::mat4 projection, Shader lamp_shader)
 {
     //--------light source----------//
     glm::vec3 light_tool_scales[] = {
@@ -1061,8 +1127,8 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
         {
 	    	lightSaber = glm::translate(lightSaber, light_tool_positions[tab]); //model part positioning
 	        lightSaber = glm::scale(lightSaber, light_tool_scales[tab]);//model scale
-	        ourShader.use();
-	        ourShader.setMat4("model", lightSaber);
+	        ourShader->use();
+	        ourShader->setMat4("model", lightSaber);
 
 	        glDrawArrays(GL_TRIANGLES, 0, 36);
 	    }
@@ -1106,7 +1172,7 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
         glm::vec3(0.05f, 0.825f, 0.674f),   //15. right_eye
     };
 
-    ourShader.use();
+    ourShader->use();
     glBindVertexArray(VAO_box[0]);
 
     for(int tab = 0; tab < SVEN_SIZE; tab++)
@@ -1153,7 +1219,7 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
             sven = glm::rotate(sven, glm::radians(-90.0f), glm::vec3(0.0, 0.0, 1.0));   
         }
 
-        ourShader.setMat4("model", sven);
+        ourShader->setMat4("model", sven);
 
         glDrawArrays(GL_TRIANGLES, 0, 36);
     }
@@ -1265,7 +1331,7 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
             glBindTexture(GL_TEXTURE_2D, sheep_tex[8]);  
         }
 
-        ourShader.setMat4("model", sheep);
+        ourShader->setMat4("model", sheep);
 
         glDrawArrays(GL_TRIANGLES, 0, 36);
     }
@@ -1351,7 +1417,7 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
 		}
 
 		heli = glm::scale(heli, table_scales[tab]);
-		ourShader.setMat4("model", heli);
+		ourShader->setMat4("model", heli);
 
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 	}    
