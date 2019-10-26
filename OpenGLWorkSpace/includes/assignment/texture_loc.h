@@ -44,6 +44,12 @@ const std::string light_tool[] =
 	"2_light.jpg",
 };
 
+const std::string helicopter[] =
+{
+    "frames.png",
+    "body.jpg",
+};
+
 //modified version of cube vertices from learnopengl
 //front ,back, left, right sides textures are going in the same direction now
 //rather than before side of cube textures were rotated at different direction

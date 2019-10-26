@@ -6,6 +6,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/transform2.hpp>
 
 #include <learnopengl/filesystem.h>
 #include <learnopengl/shader_m.h>
@@ -77,7 +78,7 @@ const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 800;
 
 //texture packs for models
-unsigned int sven_tex[SVEN_SIZE], sheep_tex[SHEEP_SIZE], light_tool_tex[2];
+unsigned int sven_tex[SVEN_SIZE], sheep_tex[SHEEP_SIZE], light_tool_tex[2], heli_tex[2];
 unsigned int tex_wood_diffuse, tex_street_diffuse, tex_grass_diffuse, tex_marble_diffuse, tex_curtin_diffuse, tex_sky_diffuse;
 unsigned int tex_wood_specular, tex_street_specular, tex_grass_specular, tex_marble_specular, tex_curtin_specular;
 //vertex buffers allow global access for ease
@@ -282,7 +283,7 @@ int main()
 
 	// glfw window creation
 	// --------------------
-	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "OpenGL Tutorial", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Water Sheep", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW window" << std::endl;
@@ -311,7 +312,7 @@ int main()
 
 	// build and compile our shader zprogram
 	// ------------------------------------
-	Shader ourShader("./sample2.vs", "./sample2.fs");
+	Shader ourShader("./shader.vs", "./shader.fs");
 	Shader lamp_shader("./lamp.vs", "./lamp.fs");
 
 
@@ -372,8 +373,8 @@ int main()
 
 	// load and create a texture 
 	// -------------------------
-	unsigned int tex_wood_diffuse, tex_street_diffuse, tex_grass_diffuse, tex_marble_diffuse, tex_curtin_diffuse, tex_sky_diffuse;
-	unsigned int tex_wood_specular, tex_street_specular, tex_grass_specular, tex_marble_specular, tex_curtin_specular;
+	// unsigned int tex_wood_diffuse, tex_street_diffuse, tex_grass_diffuse, tex_marble_diffuse, tex_curtin_diffuse, tex_sky_diffuse;
+	// unsigned int tex_wood_specular, tex_street_specular, tex_grass_specular, tex_marble_specular, tex_curtin_specular;
 
 	unsigned int tex_red_dark_diffuse, tex_red_bright_diffuse, tex_red_diffuse, tex_green_diffuse, tex_blue_diffuse;
 	unsigned int tex_red_dark_specular, tex_red_bright_specular, tex_red_specular, tex_green_specular, tex_blue_specular;
@@ -402,9 +403,11 @@ int main()
 	tex_blue_specular = loadTexture(FileSystem::getPath("resources/textures/blue_specular.jpg").c_str());
 	// register_texture(&sven_body,"resources/sven_textures/" + sven_files[6]);
 
+	//register textures packs, 4th param can be found in includes/assignment/texture_loc.h header file
 	register_tex_pack(sven_tex,"resources/sven_textures/", SVEN_SIZE, sven_files);
     register_tex_pack(sheep_tex,"resources/sheep_textures/", SHEEP_SIZE, sheep_files);
     register_tex_pack(light_tool_tex,"resources/lightTool_textures/", 2, light_tool);
+    register_tex_pack(heli_tex,"resources/heli_textures/", 2, helicopter);
 
 
 	// tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
@@ -459,7 +462,7 @@ int main()
 		else
 		{
 			ourShader.setVec3("light.diffuse", 0.0f, 0.0f, 0.0f);
-			ourShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+			ourShader.setVec3("light.specular", 0.5f, 0.5f, 0.5f);
 		}
 		ourShader.setFloat("material.shininess", 65.0f);
 
@@ -546,6 +549,7 @@ int main()
 		model = glm::mat4();
 		model = glm::scale(model, glm::vec3(3.0f, 0.001f, 7.0f));
 
+		ourShader.setFloat("material.shininess", 10.0f);
 		ourShader.setMat4("model", model);
 
 		glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -554,19 +558,33 @@ int main()
 
 		//Grass
 		glBindVertexArray(VAO_box[0]);
+		//this results in a 200 x 200 terrain grid
+		//generate terrain grid by creating and translate multiple grass models
+		float gridX = 100.0f;// state point for terrain at x axis
+		float gridZ = 100.0f;//start point for terrain at z axis
+		for(int i = 0; i < 20; i++)//add column
+		{
+			for(int j = 0; j < 20; j++)//add row
+			{
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, tex_grass_diffuse);
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, tex_grass_specular);
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex_grass_diffuse);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, tex_grass_specular);
+				model = glm::mat4();
+				// move to desired gridX and gridZ positions
+				model = glm::translate(model, glm::vec3(gridX, -0.01f, gridZ));
+				model = glm::scale(model, glm::vec3(10.0f, 0.001f, 10.0f));
 
-		model = glm::mat4();
-		model = glm::translate(model, glm::vec3(0.0f, -0.01f, 0.0f));
-		model = glm::scale(model, glm::vec3(7.0f, 0.001f, 7.0f));
+				ourShader.setMat4("model", model);
 
-		ourShader.setMat4("model", model);
+				glDrawArrays(GL_TRIANGLES, 0, 36);
+				gridZ -= 10.0f;// move up ten on z axis
+			}
 
-		glDrawArrays(GL_TRIANGLES, 0, 36);
+			gridX -= 10.0f;//move 10 to left of x axis
+			gridZ = 100.0f;//start at 50 again on z axis to add row at (gridX - 10)
+		}
 
 
 		//Table (4 tall boxes for legs & 1 thin box as table top)
@@ -661,6 +679,7 @@ int main()
 			model = glm::scale(model, button_scales[tab]);
 			model = glm::translate(model, glm::vec3(0.0f, 0.5f, 0.0f));
 
+			ourShader.setFloat("material.shininess", 65.0f);
 			ourShader.setMat4("model", model);
 
 			glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -690,6 +709,7 @@ int main()
 		model = glm::rotate(model, glm::radians(curtin_rotate_y), glm::vec3(0.0f, 1.0f, 0.0f));
 		model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.001f));
 
+		ourShader.setFloat("material.shininess", 100.0f);
 		ourShader.setMat4("model", model);
 
 		glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -773,6 +793,7 @@ void process_input(GLFWwindow *window)
 		camera_pos   = glm::vec3(0.0f, 0.9f,  3.0f);
 		camera_front = glm::vec3(0.0f, 0.0f, -1.0f);
 		camera_up    = glm::vec3(0.0f, 1.0f,  0.0f);
+		light_pos = glm::vec3(0.0f, 0.4f, 3.0f);
 	}
 
 	//toggle coordinate visibility
@@ -1102,9 +1123,10 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
         
         if(PICKUP_SVEN == false)
         {
-            sven = glm::translate(sven, glm::vec3(-2.0f, 0.3f, 0.0f));  
+            sven = glm::translate(sven, glm::vec3(-2.0f, 0.1f, 0.0f));  
             SVEN_NEAR = obj_near(glm::vec3(-2.0f, 0.3f, 0.0f), 1.6f);//collision detection
             // std::cout << SVEN_NEAR << std::endl;
+            sven = glm::rotate(sven, glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));//sven laying down
         }
         else
         {     
@@ -1119,7 +1141,7 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
             sven =  prev_view * sven; //bring sven to the view/camera space
         }
 
-        sven = glm::translate(sven, glm::vec3(0.0f, -0.8f, -1.2f)); 
+        sven = glm::translate(sven, glm::vec3(0.0f, -0.8f, -1.2f));// move to origin 
         sven = glm::translate(sven, sven_positions[tab]);
         sven = glm::scale(sven, sven_scales[tab]);
         if(tab == 13)//eyes
@@ -1214,13 +1236,13 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
         sheep = glm::translate(sheep, sheep_positions[tab]);//start
 
         //walk animation when chasing player
-        if(tab > 7 && !PLAYER_DEAD)// lower leg
+        if(tab > 7 && !PLAYER_DEAD && PICKUP_SVEN)// lower leg
         {
         	sheep = glm::translate(sheep, glm::vec3( 0.0f,  0.15f,  0.0f));//move back to previous y
         	sheep= glm::rotate(sheep, walk_animation(0.3f, tab), glm::vec3(1.0, 0.0, 0.0));//do rotaton animation
         	sheep = glm::translate(sheep, glm::vec3( 0.0f,  -0.15f,  0.0f));//move top of leg to origin y
         }
-        if(tab > 3 && tab < 8 && !PLAYER_DEAD)// upper leg
+        if(tab > 3 && tab < 8 && !PLAYER_DEAD && PICKUP_SVEN)// upper leg
         {
         	sheep= glm::rotate(sheep, walk_animation(0.4f, tab), glm::vec3(1.0, 0.0, 0.0));
         }
@@ -1246,5 +1268,91 @@ void draw_models(Shader ourShader, glm::mat4 view, glm::mat4 projection, Shader 
         ourShader.setMat4("model", sheep);
 
         glDrawArrays(GL_TRIANGLES, 0, 36);
-    }    
+    }
+
+        /**Helicopter**/
+	glm::vec3 table_scales[] = {
+		glm::vec3( 0.85f,  0.8f,  1.0f),	//body
+		glm::vec3( 3.0f,  0.02f,  0.1f),	//top blade
+		glm::vec3( 0.1f,  0.5f,  0.1f),//near left
+		glm::vec3( 0.1f,  0.5f,  0.1f),	//near right
+		glm::vec3( 0.1f,  0.5f,  0.1f),//far left
+		glm::vec3( 0.1f,  0.5f,  0.1f),	//far right
+		glm::vec3( 0.11f,  0.05f,  1.5f),	//far left landing
+		glm::vec3( 0.11f,  0.05f,  1.5f),	//far right landing
+		glm::vec3( 0.05f,  0.1f,  1.5f),	//tail
+		glm::vec3( 0.05f,  0.4f,  0.05f),	//top rotor
+		glm::vec3( 0.1f,  0.4f,  0.1f),	//fin
+		glm::vec3( 0.3f,  0.03f,  0.03f),	//rear rotor
+		glm::vec3( 0.009f,  0.4f,  0.05f),	//rear blade
+	};
+	glm::vec3 table_positions[] = {
+		glm::vec3( 0.0f,  0.8f,  0.0f),		//body0
+		glm::vec3( 0.0f,  1.45f,  0.0f),		//top blade1
+		glm::vec3(-0.3f, 0.3f,  0.2f),	//near left2
+		glm::vec3( 0.3f, 0.3f,  0.2f),	//near right3
+		glm::vec3(-0.3f, 0.3f, -0.2f),	//far left4
+		glm::vec3( 0.3f, 0.3f, -0.2f),	//far right5
+		glm::vec3(-0.33f, 0.05f, 0.0f),	//far left landing6
+		glm::vec3( 0.33f, 0.05f, 0.0f),	//far right landing7
+		glm::vec3( 0.0f,  0.8f,  1.18f),	//tail8
+		glm::vec3( 0.0f,  1.32f,  0.0f),		//top rotor9
+		glm::vec3( 0.0f,  0.92f,  1.95f),	//fin10
+		glm::vec3( 0.0f,  0.82f,  1.9f),	//rear rotor11
+		glm::vec3( -0.1f,  0.82f,  1.9f),	//rear blade12
+	};
+
+	glBindVertexArray(VAO_box[0]);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, tex_wood_diffuse);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, tex_wood_specular);
+
+	for(int tab = 0; tab < 13; tab++)
+	{
+		glm::mat4 heli = glm::mat4();
+		heli = glm::translate(heli, glm::vec3(4.0f, 0.0f, 4.0f));
+		// heli = glm::translate(heli, glm::vec3(0.0f, 0.5f, 0.0f));
+		heli = glm::translate(heli, table_positions[tab]);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, heli_tex[0]);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, tex_curtin_specular);
+
+		//note: front of helicopter facing towards -ve z axis
+		if(tab == 10)
+		{
+			//matrix for shearing but there is a function call...
+			// glm::mat4 aMat4 = glm::mat4(1.0, 0.0, 0.0, 0.0,  // 1. column
+			// 			                  0.0, 1.0, 0.5, 0.0,  // 2. column
+			// 			                  0.0, 0.0, 1.0, 0.0,  // 3. column
+			// 			                  0.0, 0.0, 0.0, 1.0); // 4. column
+			//heli *= aMat4;
+			heli = glm::shearZ3D(heli, 0.0f, 0.5f);// shear body by z axis by 0.5
+		}
+		else if(tab == 0)
+		{
+			heli = glm::shearZ3D(heli, 0.0f, 0.2f);// shearing by z axis by 0.2 
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, heli_tex[1]);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, tex_curtin_specular);
+		}
+
+		if(tab == 12)
+		{
+			heli = glm::rotate(heli, (float)glfwGetTime() * 20.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+		}
+		else if(tab == 1)
+		{
+			heli = glm::rotate(heli, (float)glfwGetTime() * 20.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+		}
+
+		heli = glm::scale(heli, table_scales[tab]);
+		ourShader.setMat4("model", heli);
+
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+	}    
 }
