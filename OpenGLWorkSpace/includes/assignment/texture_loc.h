@@ -50,6 +50,12 @@ const std::string helicopter[] =
     "body.jpg",
 };
 
+const std::string yucca[] =
+{
+    "bark.jpg",
+    "leaf.jpg",
+};
+
 //modified version of cube vertices from learnopengl
 //front ,back, left, right sides textures are going in the same direction now
 //rather than before side of cube textures were rotated at different direction

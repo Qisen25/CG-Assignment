@@ -13,6 +13,7 @@
 
 #include <iostream>
 #include <string>
+#include <cstdlib>
 #include <assignment/texture_loc.h>
 
 #define PI 3.14159265
@@ -78,9 +79,13 @@ const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 800;
 
 //texture packs for models
-unsigned int sven_tex[SVEN_SIZE], sheep_tex[SHEEP_SIZE], light_tool_tex[2], heli_tex[2];
+unsigned int sven_tex[SVEN_SIZE], sheep_tex[SHEEP_SIZE], light_tool_tex[2], heli_tex[2], yucca_tex[2], skel_diffuse;
 unsigned int tex_wood_diffuse, tex_street_diffuse, tex_grass_diffuse, tex_marble_diffuse, tex_curtin_diffuse, tex_sky_diffuse;
 unsigned int tex_wood_specular, tex_street_specular, tex_grass_specular, tex_marble_specular, tex_curtin_specular;
+unsigned int tex_red_dark_diffuse, tex_red_bright_diffuse, tex_red_diffuse, tex_green_diffuse, tex_blue_diffuse;
+unsigned int tex_red_dark_specular, tex_red_bright_specular, tex_red_specular, tex_green_specular, tex_blue_specular;
+unsigned int brickWall_diffuse, brickWall_specular, water_diffuse, helipad_diffuse, lava_diffuse, cactus_diffuse, radioactive_diffuse;
+unsigned int quest_diffuse, sign_diffuse, complete_diffuse;
 //vertex buffers allow global access for ease
 unsigned int VBO_box[2], VAO_box[2];
 unsigned int VAO_light;
@@ -89,13 +94,17 @@ unsigned int VAO_light;
 glm::vec3 light_pos(0.0f, 0.4f, 3.0f);
 
 // camera
-glm::vec3 camera_pos   = glm::vec3(0.0f, 0.9f,  3.0f);
+glm::vec3 camera_pos   = glm::vec3(0.0f, 0.9f,  5.0f);
 glm::vec3 camera_front = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 camera_up    = glm::vec3(0.0f, 1.0f,  0.0f);
+
+//model position
+glm::vec3 heli_pos = glm::vec3(1.0f, 0.0f, 3.0f);
 glm::vec3 last_placed_light;
-glm::vec3 last_pos;
-glm::mat4 prev_view;
+// glm::vec3 last_pos;
+glm::mat4 prev_view;//previous camera view
 glm::vec3 sheep_direction;//global to allow sheep last direction to be stored
+glm::vec3 skeletons_pos[] = { glm::vec3(5.0f, 0.6f, -15.0f), glm::vec3(6.0f, 0.6f, 0.0f)} ;
 
 //mouse settings
 bool firstMouse = true;
@@ -129,6 +138,10 @@ bool SVEN_NEAR = false;
 bool SVEN_TOUCHED = false;
 bool PICKUP_SVEN = false;
 bool PLAYER_DEAD = false;
+bool COMPLETE_QUEST = false;
+bool IS_FLYING = false;
+bool RISE_HELI = false;
+bool LEAVE_SPAWN = false;
 
 bool SHOW_COORDINATE = false;
 int SHOW_DELAY = 0;
@@ -203,15 +216,6 @@ void down_gravity()
 }
 
 
-// Toggle button pressing only if the camera is close enough.
-void toggle_button_distance(glm::vec3 button_pos)
-{
-	if(glm::length(camera_pos - button_pos) <= 1.6f)
-		BUTTON_CLOSE_ENOUGH = true;
-	else
-		BUTTON_CLOSE_ENOUGH = false;
-}
-
 //function to find if distance between camera and specified coord is near
 //specified range
 bool obj_near(glm::vec3 obj_pos, float nearDist)
@@ -220,20 +224,22 @@ bool obj_near(glm::vec3 obj_pos, float nearDist)
     if(glm::length(camera_pos - obj_pos) <= nearDist)
         isNear = true;
 
+    // std::cout << glm::length(camera_pos - obj_pos) << std::endl;
     return isNear;
 }
 
+//walking animation
 float walk_animation(float rotDelta, int obj_pos)
 {
 	float rot;
-	if(obj_pos % 2 == 0)
+	if(obj_pos % 2 == 0)//model scale is even position then swing forward first
 	{
 		rot = glm::sin(glfwGetTime() * 20.0f) * rotDelta;
 		// std::cout << "time " << glfwGetTime() << std::endl;
 		// std::cout << "sine " << glm::sin(glfwGetTime() * 20.0f) << std::endl;
 		// std::cout << "Rot " << rot << std::endl;
 	}
-	else
+	else// swing back first
 	{
 		rot = -(glm::sin(glfwGetTime() * 20.0f) * rotDelta);
 		// std::cout << glfwGetTime() << std::endl;
@@ -249,13 +255,11 @@ void sheep_mover(glm::vec3 watSheep)
 {	
 	//when getting distance, ignore the y axis since it never changes. keeping it may cause inaccuracy
 	float dist = glm::distance(glm::vec3(camera_pos.x, 0.0f, camera_pos.z), glm::vec3(watSheep.x, 0.0f, watSheep.z));
-	std::cout << "cam x " << camera_pos.x << std::endl;
-	std::cout << "direction x " << watSheep.x << std::endl;
-	// std::cout << "cam y " << camera_pos.y << std::endl;
-	// std::cout << "direction y"  << watSheep.y << std::endl;
-	std::cout << "cam z " << camera_pos.z << std::endl;
-	std::cout << "direction z" << watSheep.z << std::endl;
-	std::cout << "total dist " << dist << std::endl;
+	// std::cout << "cam x " << camera_pos.x << std::endl;
+	// std::cout << "direction x " << watSheep.x << std::endl;
+	// std::cout << "cam z " << camera_pos.z << std::endl;
+	// std::cout << "direction z" << watSheep.z << std::endl;
+	// std::cout << "total dist " << dist << std::endl;
 
 	//if close enough to player, then player is dead
 	if(dist < 0.8f)
@@ -270,6 +274,15 @@ void sheep_mover(glm::vec3 watSheep)
 	{
 		move_sheep += 0.0015f;	
 	}
+}
+
+void quest_started()
+{
+	// glm::vec3 camera_pos   = glm::vec3(0.0f, 0.9f,  5.0f);
+	if(camera_pos.z - 5.0  < -1.0f)// camera moved forward from spawn means quest start
+	{
+		LEAVE_SPAWN = true;
+	}	
 }
 
 
@@ -380,11 +393,6 @@ int main()
 
 	// load and create a texture 
 	// -------------------------
-	// unsigned int tex_wood_diffuse, tex_street_diffuse, tex_grass_diffuse, tex_marble_diffuse, tex_curtin_diffuse, tex_sky_diffuse;
-	// unsigned int tex_wood_specular, tex_street_specular, tex_grass_specular, tex_marble_specular, tex_curtin_specular;
-
-	unsigned int tex_red_dark_diffuse, tex_red_bright_diffuse, tex_red_diffuse, tex_green_diffuse, tex_blue_diffuse;
-	unsigned int tex_red_dark_specular, tex_red_bright_specular, tex_red_specular, tex_green_specular, tex_blue_specular;
 
 	tex_wood_diffuse = loadTexture(FileSystem::getPath("resources/textures/wood2.jpg").c_str());
 	tex_wood_specular = loadTexture(FileSystem::getPath("resources/textures/wood2_specular.jpg").c_str());
@@ -397,6 +405,16 @@ int main()
 	tex_curtin_diffuse = loadTexture(FileSystem::getPath("resources/textures/curtin.jpg").c_str());
 	tex_curtin_specular = loadTexture(FileSystem::getPath("resources/textures/curtin_specular.jpg").c_str());
 	tex_sky_diffuse = loadTexture(FileSystem::getPath("resources/textures/night_sky.jpg").c_str());
+	brickWall_diffuse = loadTexture(FileSystem::getPath("resources/textures/brickwall.jpg").c_str());
+	water_diffuse = loadTexture(FileSystem::getPath("resources/textures/water.png").c_str());
+	helipad_diffuse = loadTexture(FileSystem::getPath("resources/textures/Helipad.jpg").c_str());
+	lava_diffuse = loadTexture(FileSystem::getPath("resources/textures/lava.jpg").c_str());
+	cactus_diffuse = loadTexture(FileSystem::getPath("resources/textures/cactus.png").c_str());
+	radioactive_diffuse = loadTexture(FileSystem::getPath("resources/textures/radioactive.jpg").c_str());
+	skel_diffuse = loadTexture(FileSystem::getPath("resources/textures/skeleton.jpg").c_str());
+	quest_diffuse = loadTexture(FileSystem::getPath("resources/textures/questSign.jpg").c_str());
+	sign_diffuse = loadTexture(FileSystem::getPath("resources/textures/sign.jpg").c_str());
+	complete_diffuse = loadTexture(FileSystem::getPath("resources/textures/complete.jpg").c_str());
 
 	tex_red_dark_diffuse = loadTexture(FileSystem::getPath("resources/textures/red_dark.jpg").c_str());
 	tex_red_dark_specular = loadTexture(FileSystem::getPath("resources/textures/red_dark_specular.jpg").c_str());
@@ -408,6 +426,7 @@ int main()
 	tex_green_specular = loadTexture(FileSystem::getPath("resources/textures/green_specular.jpg").c_str());
 	tex_blue_diffuse = loadTexture(FileSystem::getPath("resources/textures/blue.jpg").c_str());
 	tex_blue_specular = loadTexture(FileSystem::getPath("resources/textures/blue_specular.jpg").c_str());
+	brickWall_specular = loadTexture(FileSystem::getPath("resources/textures/brickwall_normal.jpg").c_str());
 	// register_texture(&sven_body,"resources/sven_textures/" + sven_files[6]);
 
 	//register textures packs, 4th param can be found in includes/assignment/texture_loc.h header file
@@ -415,6 +434,7 @@ int main()
     register_tex_pack(sheep_tex,"resources/sheep_textures/", SHEEP_SIZE, sheep_files);
     register_tex_pack(light_tool_tex,"resources/lightTool_textures/", 2, light_tool);
     register_tex_pack(heli_tex,"resources/heli_textures/", 2, helicopter);
+    register_tex_pack(yucca_tex,"resources/yucca_textures/", 2, yucca);
 
 
 	// tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
@@ -447,6 +467,7 @@ int main()
 		process_input(window);
 		jump_rise();//method to make jump look more realistic by small increments of y
 		down_gravity();//method to keep player camera grounded(prevent flying)
+		quest_started();//check if quest has started
 
 		// render
 		// ------
@@ -503,6 +524,11 @@ int main()
 
 		// camera/view transformation
 		glm::mat4 view = glm::lookAt(camera_pos, camera_pos + camera_front, camera_up);
+		if(PLAYER_DEAD)
+		{
+			view = glm::inverse(glm::rotate(glm::inverse(view), glm::radians(-90.0f), glm::vec3(0.0f, 0.0f, 1.0f)));
+			view = glm::inverse(glm::translate(glm::inverse(view), glm::vec3(0.0f, -1.4f, 0.0f)));
+		}
 		ourShader->setMat4("view", view);
 
 		//declare transformation matrix
@@ -561,7 +587,24 @@ int main()
 		}
 
 
-		//Street
+		//river
+		glBindVertexArray(VAO_box[0]);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, water_diffuse);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, tex_street_specular);
+
+		model = glm::mat4();
+		model = glm::translate(model, glm::vec3(0.0f, 0.0f, -20.0f));
+		model = glm::scale(model, glm::vec3(3.0f, 0.001f, 70.0f));
+
+		ourShader->setFloat("material.shininess", 10.0f);
+		ourShader->setMat4("model", model);
+
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+
+		//street
 		glBindVertexArray(VAO_box[0]);
 
 		glActiveTexture(GL_TEXTURE0);
@@ -570,14 +613,82 @@ int main()
 		glBindTexture(GL_TEXTURE_2D, tex_street_specular);
 
 		model = glm::mat4();
-		model = glm::scale(model, glm::vec3(3.0f, 0.001f, 7.0f));
+		model = glm::translate(model, glm::vec3(20.0f, 0.0f, -42.0f));
+		model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::scale(model, glm::vec3(3.0f, 0.001f, 30.0f));
 
 		ourShader->setFloat("material.shininess", 10.0f);
 		ourShader->setMat4("model", model);
 
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 
+		//helipad
+		glBindVertexArray(VAO_box[0]);
 
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, helipad_diffuse);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, tex_street_specular);
+
+		model = glm::mat4();
+		model = glm::translate(model, glm::vec3(42.0f, 0.0f, -42.0f));
+		model = glm::scale(model, glm::vec3(3.0f, 0.001f, 3.0f));
+		if(PICKUP_SVEN && obj_near(glm::vec3(42.0f, 0.0f, -42.0f), 2.0f))
+		{
+			COMPLETE_QUEST = true;
+		}
+
+		ourShader->setFloat("material.shininess", 10.0f);
+		ourShader->setMat4("model", model);
+
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+
+		//lava and radiation trap
+		if(PICKUP_SVEN)
+		{
+			glBindVertexArray(VAO_box[0]);
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, lava_diffuse);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, tex_marble_specular);
+
+			//lava
+			model = glm::mat4();
+			model = glm::translate(model, glm::vec3(3.0f, 0.0f, -42.0f));
+			model = glm::scale(model, glm::vec3(3.0f, 0.001f, 3.0f));
+
+			if(obj_near(glm::vec3(3.0f, 0.0f, -42.0f), 2.0))//player dead if on lava
+			{
+				PLAYER_DEAD = true;
+			}
+
+			ourShader->setFloat("material.shininess", 10.0f);
+			ourShader->setMat4("model", model);
+
+			glDrawArrays(GL_TRIANGLES, 0, 36);
+
+		}
+
+		glBindVertexArray(VAO_box[0]);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, radioactive_diffuse);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, tex_curtin_specular);
+
+		//radiation
+		model = glm::mat4();
+		model = glm::translate(model, glm::vec3(6.0f, 0.2f, -14.0f));
+		model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));
+
+		ourShader->setFloat("material.shininess", 10.0f);
+		ourShader->setMat4("model", model);
+		if(obj_near(glm::vec3(6.0f, 0.2f, -14.0f), 0.8))//player dead if near toxic can
+		{
+			PLAYER_DEAD = true;
+		}
+
+		glDrawArrays(GL_TRIANGLES, 0, 36);
 
 		//Grass
 		glBindVertexArray(VAO_box[0]);
@@ -609,143 +720,78 @@ int main()
 			gridZ = 100.0f;//start at 50 again on z axis to add row at (gridX - 10)
 		}
 
-
-		//Table (4 tall boxes for legs & 1 thin box as table top)
-		glm::vec3 table_scales[] = {
-			glm::vec3( 1.0f,  0.1f,  1.0f),	//top
-			glm::vec3( 0.1f,  0.5f,  0.1f),//near left
-			glm::vec3( 0.1f,  0.5f,  0.1f),	//near right
-			glm::vec3( 0.1f,  0.5f,  0.1f),//far left
-			glm::vec3( 0.1f,  0.5f,  0.1f),	//far right
+		//quest sign
+		glm::vec3 qSign_scales[] = {
+			glm::vec3( 1.0f,  0.5f,  0.01f),	//top
+			glm::vec3( 0.09f,  0.7f,  0.09f),//near left
 		};
-		glm::vec3 table_positions[] = {
+		glm::vec3 qSign_positions[] = {
 			glm::vec3( 0.0f,  0.5f,  0.0f),		//top
-			glm::vec3(-0.45f, 0.0f,  0.45f),	//near left
-			glm::vec3( 0.45f, 0.0f,  0.45f),	//near right
-			glm::vec3(-0.45f, 0.0f, -0.45f),	//far left
-			glm::vec3( 0.45f, 0.0f, -0.45f),	//far right
+			glm::vec3(-0.0f, 0.0f,  0.0f),	//near left
 		};
 
 		glBindVertexArray(VAO_box[0]);
 
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex_wood_diffuse);
+		glBindTexture(GL_TEXTURE_2D, quest_diffuse);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, tex_wood_specular);
 
-		for(int tab = 0; tab < 5; tab++)
+		for(int tab = 0; tab < 2; tab++)
 		{	
 			model = glm::mat4();
-			model = glm::translate(model, table_positions[tab]);
-			model = glm::scale(model, table_scales[tab]);
-			model = glm::translate(model, glm::vec3(0.0f, 0.5f, 0.0f));
+			if(tab == 1)
+			{
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, sign_diffuse);
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, tex_wood_specular);	
+			}
+			model = glm::translate(model, glm::vec3(0.0f, -0.01f, -2.0f));
+			model = glm::translate(model, qSign_positions[tab]);
+			model = glm::scale(model, qSign_scales[tab]);
 
 			ourShader->setMat4("model", model);
 
 			glDrawArrays(GL_TRIANGLES, 0, 36);
+		}
+
+		//complete sign
+		if(COMPLETE_QUEST)
+		{
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, complete_diffuse);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, tex_wood_specular);
+			for(int tab = 0; tab < 2; tab++)
+			{	
+				model = glm::mat4();
+				if(tab == 1)
+				{
+					glActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, sign_diffuse);
+					glActiveTexture(GL_TEXTURE1);
+					glBindTexture(GL_TEXTURE_2D, tex_wood_specular);	
+				}
+				model = glm::translate(model, glm::vec3(41.0f, -0.01f, -41.0f));
+				model = glm::translate(model, qSign_positions[tab]);
+				model = glm::scale(model, qSign_scales[tab]);
+
+				ourShader->setMat4("model", model);
+
+				glDrawArrays(GL_TRIANGLES, 0, 36);
+			}
 		}
 
 		//function to draw sven,light source, water sheep and any other model
 		//this is just to make while loop less cluttered
         draw_models(ourShader, view, projection, lamp_shader);
 
-		//Button on table (1 big box & 1 small box as button)
-		glm::vec3 button_scales[] = {
-			glm::vec3( 0.2f,  0.12f,  0.2f),		//case
-			glm::vec3( 0.12f,  0.12f,  0.12f),		//button
-		};
-
-		float red_button_height = 0.05f;
-		if(BUTTON_PRESSED == true) {red_button_height -= 0.02f;}
-
-		glm::vec3 button_positions[] = {
-			glm::vec3( 0.0f,  0.0f,  0.0f),			//case
-			glm::vec3( 0.0f,  red_button_height,  0.0f),	//button
-		};
-
-		glm::vec3 button_final_location = glm::vec3(0.0f, 0.56f, 0.25f);
-		toggle_button_distance(button_final_location); 
-
-		glBindVertexArray(VAO_box[0]);
-		
-		for(int tab = 0; tab < 2; tab++)
-		{	
-			glActiveTexture(GL_TEXTURE0);
-			if(tab == 0)
-			{	
-				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, tex_marble_diffuse);
-				glActiveTexture(GL_TEXTURE1);
-				glBindTexture(GL_TEXTURE_2D, tex_marble_specular);
-			}
-			else
-			{
-				if(BUTTON_PRESSED == false) 	// Not Pressed
-				{
-					glActiveTexture(GL_TEXTURE0);
-					glBindTexture(GL_TEXTURE_2D, tex_red_dark_diffuse);
-					glActiveTexture(GL_TEXTURE1);
-					glBindTexture(GL_TEXTURE_2D, tex_red_dark_specular);
-				}
-				else				// Pressed
-				{
-					glActiveTexture(GL_TEXTURE0);
-					glBindTexture(GL_TEXTURE_2D, tex_red_bright_diffuse);
-					glActiveTexture(GL_TEXTURE1);
-					glBindTexture(GL_TEXTURE_2D, tex_red_bright_specular);
-				}
-			}
-
-			model = glm::mat4();
-			model = glm::translate(model, button_final_location);
-			model = glm::translate(model, button_positions[tab]);
-			model = glm::scale(model, button_scales[tab]);
-			model = glm::translate(model, glm::vec3(0.0f, 0.5f, 0.0f));
-
-			ourShader->setFloat("material.shininess", 65.0f);
-			ourShader->setMat4("model", model);
-
-			glDrawArrays(GL_TRIANGLES, 0, 36);
-		}
-
-
-
-		//Curtin Logo
-		glBindVertexArray(VAO_box[0]);
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex_curtin_diffuse);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, tex_curtin_specular);
-
-		//transformation for animation
-		if(BUTTON_PRESSED == true)
-		{
-			curtin_translate_y += 1.0f;
-			curtin_rotate_y += 1.0f;
-			if(abs(curtin_translate_y - 360.0f) <= 0.1f) curtin_translate_y = 0.0f;
-			if(abs(curtin_rotate_y - 360.0f) <= 0.1f) curtin_rotate_y = 0.0f;
-		}
-
-		model = glm::mat4();
-		model = glm::translate(model, glm::vec3(0.0f, 0.9f + (0.1f * sin(curtin_translate_y * PI / 180.f)), -0.35f));
-		model = glm::rotate(model, glm::radians(curtin_rotate_y), glm::vec3(0.0f, 1.0f, 0.0f));
-		model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.001f));
-
-		ourShader->setFloat("material.shininess", 100.0f);
-		ourShader->setMat4("model", model);
-
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-
-
 		
 		if(LIGHT_IGNITED == true) lamp_shader.setFloat("intensity", 5.0);
 		else lamp_shader.setFloat("intensity", 0.3);
 
 		
-
-
-
 		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
 		// -------------------------------------------------------------------------------
 		glfwSwapBuffers(window);
@@ -770,40 +816,78 @@ int main()
 // ---------------------------------------------------------------------------------------------------------
 void process_input(GLFWwindow *window)
 {
-	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-    	glfwSetWindowShouldClose(window, true);
-
-	float cameraSpeed;
-
-	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_RELEASE)
-		cameraSpeed = 2.5 * delta_time; 
-	else
-		cameraSpeed = 2.5 * delta_time * 2;	// double speed with "Shift" pressed
-
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS )
-		camera_pos += cameraSpeed * camera_front;
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-		camera_pos -= cameraSpeed * camera_front;
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-		camera_pos -= glm::normalize(glm::cross(camera_front, camera_up)) * cameraSpeed;
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-		camera_pos += glm::normalize(glm::cross(camera_front, camera_up)) * cameraSpeed;
-
-	//jump
-	if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && !isJump && delay_jump == 0)
+	if(!PLAYER_DEAD)
 	{
-		jump_frame = glfwGetTime();
-		isJump = true;
+		float cameraSpeed;
+
+		if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_RELEASE)
+			cameraSpeed = 2.5 * delta_time; 
+		else
+			cameraSpeed = 2.5 * delta_time * 2;	// double speed with "Shift" pressed
+
+		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS )
+			camera_pos += cameraSpeed * camera_front;
+		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+			camera_pos -= cameraSpeed * camera_front;
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+			camera_pos -= glm::normalize(glm::cross(camera_front, camera_up)) * cameraSpeed;
+		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+			camera_pos += glm::normalize(glm::cross(camera_front, camera_up)) * cameraSpeed;
+
+		//jump
+		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && !isJump && delay_jump == 0)
+		{
+			jump_frame = glfwGetTime();
+			isJump = true;
+		}
+
+		//pick up light source
+	    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS && SHOW_DELAY == 0 && TORCH_NEAR)
+	    {
+	        SHOW_DELAY = 30;
+	        LIGHT_TOUCHED = true;
+	        if(PICKUP_LIGHT == false)
+	        {
+	            PICKUP_LIGHT = true;
+	        }
+	        else
+	        {
+	            //place light down if looking at ground
+	            if(pitch >= -60.0f && pitch < -52.0f)
+	            {
+	               PICKUP_LIGHT = false;
+	               last_placed_light =  camera_pos + camera_front;
+	            }
+	        }
+	    }
+
+	    //pickup sven
+	    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS && SHOW_DELAY == 0 && SVEN_NEAR)
+	    {
+	        SHOW_DELAY = 30;
+	        if(PICKUP_SVEN == false)
+	        {
+	            PICKUP_SVEN = true;
+	            SVEN_TOUCHED = true;
+	        }
+	    }
+
+	    //ignite lightsaber
+	    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS && BUTTON_DELAY == 0 && PICKUP_LIGHT == true)
+		{
+			BUTTON_DELAY = 20;
+			if(LIGHT_IGNITED == false) 		
+				LIGHT_IGNITED = true;
+			else
+				LIGHT_IGNITED = false;
+		}
+
 	}
 
-	//toggle red button
-	if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS && BUTTON_DELAY == 0 && BUTTON_CLOSE_ENOUGH == true)
+		//reset button
+	if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS && BUTTON_DELAY == 0)
 	{
 		BUTTON_DELAY = 20;
-		if(BUTTON_PRESSED == false) 		
-			BUTTON_PRESSED = true;
-		else
-			BUTTON_PRESSED = false;
 
 		PICKUP_LIGHT = false;
 		LIGHT_TOUCHED =false;
@@ -812,15 +896,22 @@ void process_input(GLFWwindow *window)
 		SVEN_TOUCHED = false;
 		PICKUP_SVEN = false;
 		PLAYER_DEAD = false;
+		IS_FLYING = false;
+		RISE_HELI = false;
+		LEAVE_SPAWN = false;
+		COMPLETE_QUEST = false;
 		sheep_direction = glm::vec3(0.0f, 0.0f, 0.0f);
 		move_sheep = 0.0f;
-		camera_pos   = glm::vec3(0.0f, 0.9f,  3.0f);
+		camera_pos   = glm::vec3(0.0f, 0.9f,  5.0f);
 		camera_front = glm::vec3(0.0f, 0.0f, -1.0f);
 		camera_up    = glm::vec3(0.0f, 1.0f,  0.0f);
 		light_pos = glm::vec3(0.0f, 0.4f, 3.0f);
+		heli_pos = glm::vec3(2.0f, 0.0f, 2.0f);
+		skeletons_pos[0] = glm::vec3(5.0f, 0.6f, -15.0f);
+		skeletons_pos[1] = glm::vec3(6.0f, 0.6f, 0.0f);
 	}
 
-	//toggle coordinate visibility
+		//toggle coordinate visibility
 	if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS && SHOW_DELAY == 0)
 	{
 		SHOW_DELAY = 20;
@@ -830,38 +921,41 @@ void process_input(GLFWwindow *window)
 			SHOW_COORDINATE = false;
 	}
 
-	//pick up light source
-    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS && SHOW_DELAY == 0 && TORCH_NEAR)
-    {
-        SHOW_DELAY = 30;
-        LIGHT_TOUCHED = true;
-        if(PICKUP_LIGHT == false)
-        {
-            PICKUP_LIGHT = true;
-        }
-        else
-        {
-            //place light down if looking at ground
-            if(pitch >= -60.0f && pitch < -52.0f)
-            {
-               PICKUP_LIGHT = false;
-               last_placed_light =  camera_pos + camera_front;
-            }
-        }
-    }
+		//decrease attenuation brightness
+	if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS && BUTTON_DELAY == 0)
+	{
+		BUTTON_DELAY = 10;
+		//if attributes are above 9, no point of decreasing further since it makes no difference
+		if(LINEAR_ATT < 9.0f || QUAD_ATT < 1.0f)
+		{
+			LINEAR_ATT /= 0.8f;
+			QUAD_ATT /= 0.8f;
+		}
+	}
 
-    //pickup sven
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS && SHOW_DELAY == 0 && SVEN_NEAR)
-    {
-        SHOW_DELAY = 30;
-        if(PICKUP_SVEN == false)
-        {
-            PICKUP_SVEN = true;
-            SVEN_TOUCHED = true;
-        }
-    }
+	//increase attenuation brightness
+	if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS && BUTTON_DELAY == 0)
+	{
+		BUTTON_DELAY = 10;
+		//multiply to make sure attributes never go negative
+		if(LINEAR_ATT > 0.006f || QUAD_ATT > 0.008f)// no point decreasing futher since it makes no diff after these
+		{
+			LINEAR_ATT *= 0.8f;
+			QUAD_ATT *= 0.8f;
+		}
+	}
 
-    //perspective or orthographic
+		//switch dark and bright scenery
+    if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS && BUTTON_DELAY == 0)
+	{
+		BUTTON_DELAY = 20;
+		if(LIGHTING_ACTIVE == false) 		
+			LIGHTING_ACTIVE = true;
+		else
+			LIGHTING_ACTIVE = false;
+	}
+
+	    //perspective or orthographic
     if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS && SHOW_DELAY == 0)
     {
         SHOW_DELAY = 30;
@@ -875,90 +969,48 @@ void process_input(GLFWwindow *window)
         }
     }
 
-    //ignite lightsaber
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS && BUTTON_DELAY == 0 && PICKUP_LIGHT == true)
-	{
-		BUTTON_DELAY = 20;
-		if(LIGHT_IGNITED == false) 		
-			LIGHT_IGNITED = true;
-		else
-			LIGHT_IGNITED = false;
-	}
-
-	//decrease attenuation brightness
-	if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS && BUTTON_DELAY == 0)
-	{
-		BUTTON_DELAY = 20;
-		//if attributes are above 9, no point of decreasing further since it makes no difference
-		if(LINEAR_ATT < 9.0f || QUAD_ATT < 1.0f)
-		{
-			LINEAR_ATT /= 0.8f;
-			QUAD_ATT /= 0.8f;
-		}
-		std::cout << "LINEAR- " << LINEAR_ATT << std::endl;
-		std::cout << "QUAD- " << QUAD_ATT << std::endl;
-	}
-
-	//increase attenuation brightness
-	if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS && BUTTON_DELAY == 0)
-	{
-		BUTTON_DELAY = 20;
-		//multiply to make sure attributes never go negative
-		if(LINEAR_ATT > 0.006f || QUAD_ATT > 0.008f)// no point decreasing futher since it makes no diff after these
-		{
-			LINEAR_ATT *= 0.8f;
-			QUAD_ATT *= 0.8f;
-		}
-		std::cout << "LINEAR+ " << LINEAR_ATT << std::endl;
-		std::cout << "QUAD+ " << QUAD_ATT << std::endl;
-	}
-
-		//switch dark and bright scenery
-    if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS && BUTTON_DELAY == 0)
-	{
-		BUTTON_DELAY = 20;
-		if(LIGHTING_ACTIVE == false) 		
-			LIGHTING_ACTIVE = true;
-		else
-			LIGHTING_ACTIVE = false;
-	}
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+	    	glfwSetWindowShouldClose(window, true);
 }
 
 // glfw: whenever the mouse moves, this callback is called
 // -------------------------------------------------------
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 {
-    if (firstMouse)
-    {
-        lastX = xpos;
-        lastY = ypos;
-        firstMouse = false;
-    }
+	if(!PLAYER_DEAD)
+	{
+	    if (firstMouse)
+	    {
+	        lastX = xpos;
+	        lastY = ypos;
+	        firstMouse = false;
+	    }
 
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
-    lastX = xpos;
-    lastY = ypos;
+	    float xoffset = xpos - lastX;
+	    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+	    lastX = xpos;
+	    lastY = ypos;
 
-    float sensitivity = 0.1f; // change this value to your liking
-    xoffset *= sensitivity;
-    yoffset *= sensitivity;
+	    float sensitivity = 0.1f; // change this value to your liking
+	    xoffset *= sensitivity;
+	    yoffset *= sensitivity;
 
-    yaw += xoffset;
-    pitch += yoffset;
+	    yaw += xoffset;
+	    pitch += yoffset;
 
-    // make sure that when pitch is out of bounds, screen doesn't get flipped
-    if (pitch > 89.0f)
-        pitch = 89.0f;
-    if (pitch < -60.0f)
-        pitch = -60.0f;
+	    // make sure that when pitch is out of bounds, screen doesn't get flipped
+	    if (pitch > 89.0f)
+	        pitch = 89.0f;
+	    if (pitch < -60.0f)
+	        pitch = -60.0f;
 
-    glm::vec3 front;
-    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-    front.y = sin(glm::radians(pitch));
-    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-    camera_front = glm::normalize(front);
-    down_gravity();
+	    glm::vec3 front;
+	    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+	    front.y = sin(glm::radians(pitch));
+	    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+	    camera_front = glm::normalize(front);
+	    down_gravity();
+	}
 }
 
 
@@ -1076,6 +1128,11 @@ void draw_models(Shader *ourShader, glm::mat4 view, glm::mat4 projection, Shader
         glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, tex_curtin_specular);
         glm::mat4 lightSaber = glm::mat4();
+
+        if(PLAYER_DEAD)//drop light
+        {
+        	PICKUP_LIGHT = false;
+        }
         
         if(!PICKUP_LIGHT)
         {
@@ -1095,8 +1152,12 @@ void draw_models(Shader *ourShader, glm::mat4 view, glm::mat4 projection, Shader
                 // std::cout << tempY << std::endl;
                 lightSaber = glm::translate(lightSaber, glm::vec3(last_placed_light.x, tempY + 0.01, last_placed_light.z));  
                 light_pos = glm::vec3(last_placed_light.x, tempY + 0.4, last_placed_light.z);  
-                TORCH_NEAR = obj_near(glm::vec3(last_placed_light.x, tempY, last_placed_light.z), 1.6f); //collision detection
+                TORCH_NEAR = obj_near(glm::vec3(last_placed_light.x, tempY, last_placed_light.z), 1.6f); //collision detection for pick up
             }
+        }
+        else if(PLAYER_DEAD)
+        {
+        	lightSaber = glm::translate(lightSaber, glm::vec3(camera_pos.x, 0.1f, camera_pos.z)); 
         }
         else//player carrying light
         {
@@ -1128,6 +1189,7 @@ void draw_models(Shader *ourShader, glm::mat4 view, glm::mat4 projection, Shader
 	    	lightSaber = glm::translate(lightSaber, light_tool_positions[tab]); //model part positioning
 	        lightSaber = glm::scale(lightSaber, light_tool_scales[tab]);//model scale
 	        ourShader->use();
+	        ourShader->setFloat("material.shininess", 100.0f);
 	        ourShader->setMat4("model", lightSaber);
 
 	        glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -1189,8 +1251,8 @@ void draw_models(Shader *ourShader, glm::mat4 view, glm::mat4 projection, Shader
         
         if(PICKUP_SVEN == false)
         {
-            sven = glm::translate(sven, glm::vec3(-2.0f, 0.1f, 0.0f));  
-            SVEN_NEAR = obj_near(glm::vec3(-2.0f, 0.3f, 0.0f), 1.6f);//collision detection
+            sven = glm::translate(sven, glm::vec3(0.0f, 0.1f, -50.0f));  
+            SVEN_NEAR = obj_near(glm::vec3(0.0f, 0.3f, -50.0f), 1.6f);//collision detection
             // std::cout << SVEN_NEAR << std::endl;
             sven = glm::rotate(sven, glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));//sven laying down
         }
@@ -1219,6 +1281,7 @@ void draw_models(Shader *ourShader, glm::mat4 view, glm::mat4 projection, Shader
             sven = glm::rotate(sven, glm::radians(-90.0f), glm::vec3(0.0, 0.0, 1.0));   
         }
 
+        ourShader->setFloat("material.shininess", 10.0f);
         ourShader->setMat4("model", sven);
 
         glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -1256,7 +1319,7 @@ void draw_models(Shader *ourShader, glm::mat4 view, glm::mat4 projection, Shader
     glBindVertexArray(VAO_box[0]);
 
     //specify sheep start location in world
-    glm::vec3 sheep_start_location = glm::vec3(2.08f, 0.1f, -2.32f);
+    glm::vec3 sheep_start_location = glm::vec3(2.08f, 0.1f, -51.0f);
 
     for(int tab = 0; tab < 12; tab++)
     {   
@@ -1268,7 +1331,7 @@ void draw_models(Shader *ourShader, glm::mat4 view, glm::mat4 projection, Shader
         	float angle = glm::atan(direction.x, direction.z);
 
 	        // if player is not dead then sheep follows player
-	        if(!PLAYER_DEAD)
+	        if(!PLAYER_DEAD && !COMPLETE_QUEST)
 	        {	
 	        	//add sheep starting position to direction matrix, result of this will give the actual 
 	        	//position of the sheep instead of direction and which will help get correct distance
@@ -1277,7 +1340,7 @@ void draw_models(Shader *ourShader, glm::mat4 view, glm::mat4 projection, Shader
 	        	sheep_direction = glm::vec3(direction.x, 0.0f, direction.z) * move_sheep; 
 	        	sheep = glm::translate(sheep, sheep_direction);
 	        }
-	        else //player is dead, sheep will be at location since hitting player
+	        else //player is dead or quest complete, sheep will be at location since hitting player
 	        {
 	        	//adding direction and start direction gives current position of sheep
 	        	direction = glm::normalize(glm::vec3(camera_pos - (sheep_direction + sheep_start_location)));
@@ -1302,21 +1365,19 @@ void draw_models(Shader *ourShader, glm::mat4 view, glm::mat4 projection, Shader
         sheep = glm::translate(sheep, sheep_positions[tab]);//start
 
         //walk animation when chasing player
-        if(tab > 7 && !PLAYER_DEAD && PICKUP_SVEN)// lower leg
+        if(tab > 7 && !PLAYER_DEAD && PICKUP_SVEN && !COMPLETE_QUEST)// lower leg
         {
         	sheep = glm::translate(sheep, glm::vec3( 0.0f,  0.15f,  0.0f));//move back to previous y
         	sheep= glm::rotate(sheep, walk_animation(0.3f, tab), glm::vec3(1.0, 0.0, 0.0));//do rotaton animation
         	sheep = glm::translate(sheep, glm::vec3( 0.0f,  -0.15f,  0.0f));//move top of leg to origin y
         }
-        if(tab > 3 && tab < 8 && !PLAYER_DEAD && PICKUP_SVEN)// upper leg
+        if(tab > 3 && tab < 8 && !PLAYER_DEAD && PICKUP_SVEN && !COMPLETE_QUEST)// upper leg
         {
         	sheep= glm::rotate(sheep, walk_animation(0.4f, tab), glm::vec3(1.0, 0.0, 0.0));
         }
-        // if(tab == 3)
-        // {
-        	glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, tex_grass_specular);
-        // }
+
+    	glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, tex_grass_specular);
 
         if(tab < 9)
         {
@@ -1337,7 +1398,7 @@ void draw_models(Shader *ourShader, glm::mat4 view, glm::mat4 projection, Shader
     }
 
         /**Helicopter**/
-	glm::vec3 table_scales[] = {
+	glm::vec3 heli_scales[] = {
 		glm::vec3( 0.85f,  0.8f,  1.0f),	//body
 		glm::vec3( 3.0f,  0.02f,  0.1f),	//top blade
 		glm::vec3( 0.1f,  0.5f,  0.1f),//near left
@@ -1352,7 +1413,7 @@ void draw_models(Shader *ourShader, glm::mat4 view, glm::mat4 projection, Shader
 		glm::vec3( 0.3f,  0.03f,  0.03f),	//rear rotor
 		glm::vec3( 0.009f,  0.4f,  0.05f),	//rear blade
 	};
-	glm::vec3 table_positions[] = {
+	glm::vec3 heli_positions[] = {
 		glm::vec3( 0.0f,  0.8f,  0.0f),		//body0
 		glm::vec3( 0.0f,  1.45f,  0.0f),		//top blade1
 		glm::vec3(-0.3f, 0.3f,  0.2f),	//near left2
@@ -1370,17 +1431,65 @@ void draw_models(Shader *ourShader, glm::mat4 view, glm::mat4 projection, Shader
 
 	glBindVertexArray(VAO_box[0]);
 
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, tex_wood_diffuse);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, tex_wood_specular);
-
+	glm::vec3 heliStart = glm::vec3(1.0f, 0.0f, 3.0f);
 	for(int tab = 0; tab < 13; tab++)
 	{
 		glm::mat4 heli = glm::mat4();
-		heli = glm::translate(heli, glm::vec3(4.0f, 0.0f, 4.0f));
-		// heli = glm::translate(heli, glm::vec3(0.0f, 0.5f, 0.0f));
-		heli = glm::translate(heli, table_positions[tab]);
+
+		// std::cout << !obj_near(heli_pos, 1.6) << std::endl;
+		if(LEAVE_SPAWN && !COMPLETE_QUEST)//helicopter fly when player leaves spawn (Quest started)
+		{
+			if(RISE_HELI)//if helcopter has risen fly forward
+			{
+				glm::vec3 direction = glm::normalize(glm::vec3(glm::vec3(1.0f, 0.0f, -500.0f) - heli_pos));
+				heli = glm::translate(heli, glm::vec3(direction.x, 0.0f, direction.z) * 0.01f);
+				// std::cout << direction.z << std::endl;
+				heli = glm::translate(heli, heli_pos);
+				heli_pos += (glm::vec3(direction.x, 0.0f, direction.z) * 0.01f);
+				IS_FLYING = true;
+			}
+			else
+			{
+				if(heli_pos.y < 4.8f)//rise until 4.8 y axis is reached
+				{
+					glm::vec3 direction = glm::normalize(glm::vec3(glm::vec3(0.0f, 5.0f, 0.0f) - heli_pos));
+					heli = glm::translate(heli, glm::vec3(0.0f, direction.y, 0.0f) * 0.01f);
+					heli = glm::translate(heli, heli_pos);
+					heli_pos += (glm::vec3(0.0f, direction.y, 0.0f) * 0.005f);
+				}
+				else//helicopter has full risen 
+				{
+					RISE_HELI = true;
+				}
+			}
+		}
+		else if(IS_FLYING && COMPLETE_QUEST)
+		{
+			//fly to helipad if player has reached it with sven
+			glm::vec3 direction = glm::normalize(glm::vec3(42.0f, 0.0f, -42.0f) - heli_pos);
+			float angle = glm::atan(direction.x, direction.z);
+			heli = glm::translate(heli, heli_pos);
+			heli_pos += (glm::vec3(direction.x, 0.0f, direction.z) * 0.015f);
+			heli = glm::rotate(heli, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+			heli = glm::rotate(heli, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+			// std::cout << glm::length(heli_pos - glm::vec3(42.0f, 0.0f, -42.0f)) << std::endl;
+			//descend helicopter
+			if(glm::length(heli_pos - glm::vec3(42.0f, 0.0f, -42.0f)) <= 4.81f)
+			{
+				if(heli_pos.y > 0.2f)
+				{
+					heli_pos.y -=	0.005;
+				}
+			}
+			
+		}
+		else//default location
+		{
+			heli = glm::translate(heli, heliStart);
+		}
+		
+		heli = glm::translate(heli, heli_positions[tab]);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, heli_tex[0]);
@@ -1416,9 +1525,243 @@ void draw_models(Shader *ourShader, glm::mat4 view, glm::mat4 projection, Shader
 			heli = glm::rotate(heli, (float)glfwGetTime() * 20.0f, glm::vec3(0.0f, 1.0f, 0.0f));
 		}
 
-		heli = glm::scale(heli, table_scales[tab]);
+		heli = glm::scale(heli, heli_scales[tab]);
+		ourShader->setFloat("material.shininess", 100.0f);
 		ourShader->setMat4("model", heli);
 
 		glDrawArrays(GL_TRIANGLES, 0, 36);
-	}    
+	}
+
+	//** yucca tree model**//
+	glm::vec3 yucca_scales[] = {
+		glm::vec3( 0.1f,  1.5f,  0.1f),	//far right
+		glm::vec3( 0.3f,  0.1f,  0.1f),	//branch
+		glm::vec3( 0.5f,  0.1f,  0.1f),	//branch
+		glm::vec3( 0.2f,  0.3f,  0.2f),	//leaf
+		glm::vec3( 0.2f,  0.23f,  0.2f),	//leaf
+		glm::vec3( 0.2f,  0.25f,  0.2f),	//leaf
+	};
+	glm::vec3 yucca_positions[] = {
+		glm::vec3( 0.0f,  0.0f,  0.0f),		//top
+		glm::vec3( 0.2f,  0.3f,  0.0f),	//branch
+		glm::vec3( -0.3f,  0.01f,  0.0f),	//branch
+		glm::vec3( 0.0f,  0.8f,  0.0f),	//leaf
+		glm::vec3( 0.4f,  0.35f,  0.0f),	//leaf
+		glm::vec3( -0.5f,  0.15f,  0.0f),	//leaf
+	};
+
+	glBindVertexArray(VAO_box[0]);
+
+	float zTrans = 8.0f;
+	float xTrans = -5.0f;
+	for(int i = 0; i < 10; i++)
+	{
+		for(int tab = 0; tab < 6; tab++)
+		{	
+			glm::mat4 yuccaTree = glm::mat4();
+			yuccaTree = glm::translate(yuccaTree, glm::vec3(xTrans, 0.7f, zTrans));
+			yuccaTree = glm::translate(yuccaTree, yucca_positions[tab]);
+
+			if(tab == 1)
+			{
+				yuccaTree = glm::shearY3D(yuccaTree, 0.5f, 0.0f);
+			}
+			if(tab == 2)
+			{
+				yuccaTree = glm::shearY3D(yuccaTree, -0.5f, 0.0f);
+			}
+
+			if(tab > 2)
+			{
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, yucca_tex[1]);
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, tex_grass_specular);
+			}
+			else
+			{
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, yucca_tex[0]);
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, tex_grass_specular);
+			}
+
+			yuccaTree = glm::scale(yuccaTree, yucca_scales[tab]);
+
+			ourShader->setMat4("model", yuccaTree);
+
+			glDrawArrays(GL_TRIANGLES, 0, 36);
+		} 
+
+		zTrans -= 6;
+		if((int)xTrans % 2 == 0.0f)
+		{
+			xTrans /= 2.0f;
+		}
+		else
+		{
+			xTrans *= 4.0f;	
+		}
+	}
+
+	//random huts
+	glm::vec3 hut_scales[] = {
+		glm::vec3( 3.0f,  0.1f,  3.0f),	//top
+		glm::vec3( 1.0f,  1.5f,  0.1f),//near left
+		glm::vec3( 1.0f,  1.5f,  0.1f),	//near right
+		glm::vec3( 0.1f,  1.5f,  2.8f),//far left
+		glm::vec3( 0.1f,  1.5f,  2.8f),	//far right
+		glm::vec3( 2.8f,  1.5f,  0.1f),//near left
+	};
+	glm::vec3 hut_positions[] = {
+		glm::vec3( 0.0f,  1.2f,  0.0f),		//top
+		glm::vec3(-1.0f, 0.5f,  1.35f),	//near left
+		glm::vec3( 1.0f, 0.5f,  1.35f),	//near right
+		glm::vec3(-1.45f, 0.5f, -0.1f),	//far left
+		glm::vec3( 1.45f, 0.5f, -0.1f),	//far right
+		glm::vec3( 0.0f, 0.5f, -1.45f),	//far back
+	};
+
+	glBindVertexArray(VAO_box[0]);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, tex_wood_diffuse);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, tex_wood_specular);
+
+	for(int hutIndex = 0; hutIndex < 2; hutIndex++)
+	{
+		for(int tab = 0; tab < 6; tab++)
+		{	
+			glm::mat4 model = glm::mat4();
+			if(hutIndex == 0)//1st hut
+			{
+				model = glm::translate(model, glm::vec3(5.0f, 0.1f, -15.0f));
+				model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+				model = glm::translate(model, hut_positions[tab]);
+				model = glm::scale(model, hut_scales[tab]);
+			}
+			else if(hutIndex == 1)//water sheep hut
+			{
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, brickWall_diffuse);
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, brickWall_specular);
+				model = glm::translate(model, glm::vec3(0.0f, 0.1f, -50.0f));
+				model = glm::translate(model, hut_positions[tab] * 1.8f);
+				model = glm::scale(model, hut_scales[tab] * 2.0f);
+			}
+			
+			ourShader->setMat4("model", model);
+
+			glDrawArrays(GL_TRIANGLES, 0, 36);
+		}   
+	}
+
+		//** cactus model**//
+	glm::vec3 cactus_scales[] = {
+		glm::vec3( 0.5f,  2.0f,  0.5f),	//cactus
+	};
+
+	glBindVertexArray(VAO_box[0]);
+
+	if(PICKUP_SVEN)
+	{
+		xTrans = 5.0f;
+		zTrans = -38.0f;
+		for(int i = 0; i < 20; i++)
+		{
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, cactus_diffuse);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, tex_grass_specular);
+
+			glm::mat4 cactus = glm::mat4();
+			cactus = glm::translate(cactus, glm::vec3(xTrans, 0.7f, zTrans));
+			cactus = glm::translate(cactus, glm::vec3(5.0f, 0.0f, 0.0f));
+			cactus = glm::rotate(cactus, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+			cactus = glm::scale(cactus, cactus_scales[0]);
+
+			if(obj_near(glm::vec3(5.0f, 0.0f, 0.0f) + glm::vec3(xTrans, 0.7f, zTrans), 0.6f))
+			{
+				PLAYER_DEAD = true;
+			}
+
+			ourShader->setMat4("model", cactus);
+
+			glDrawArrays(GL_TRIANGLES, 0, 36);
+
+			if((int)xTrans % 2 == 0.)
+			{
+				xTrans /= 2.0f;
+				zTrans -= 2.0f;
+			}
+			else
+			{
+				xTrans *= 4.0f;	
+				zTrans += 2.0f;
+			}
+		}
+	}
+
+		//** skeleton model**//
+	glm::vec3 skel_scales[] = {
+		glm::vec3( 0.3f,  0.3f,  0.3f),	//head0
+		glm::vec3( 0.2f,  0.5f,  0.1f),	//body1
+		glm::vec3( 0.1f,  0.1f,  0.3f),	//left arm2
+		glm::vec3( 0.1f,  0.1f,  0.3f),	//right arm3
+		glm::vec3( 0.06f,  0.5f,  0.06f),	//right leg4
+		glm::vec3( 0.06f,  0.5f,  0.06f),	//left leg5
+	};
+	glm::vec3 skel_positions[] = {
+		glm::vec3( 0.0f,  0.5f,  0.0f),		//head
+		glm::vec3( 0.0f,  0.1f,  0.0f),	//body
+		glm::vec3( -0.15f,  0.2f,  -0.1f),	//l arm
+		glm::vec3( 0.15f,  0.2f,  -0.1f),	//r arm
+		glm::vec3( 0.05f,  -0.4f,  0.0f),	//r leg
+		glm::vec3( -0.05f,  -0.4f,  0.0f),	//l leg
+	};
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, skel_diffuse);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, tex_marble_specular);
+
+	if(PICKUP_SVEN)
+	{
+		for(int i = 0; i < 2; i++)
+		{
+			glm::vec3 direction = glm::normalize(glm::vec3(camera_pos - skeletons_pos[i]));
+			float angle = glm::atan(direction.x, direction.z);
+			for(int tab = 0; tab < 6; tab++)
+			{	
+				glm::mat4 skel = glm::mat4();
+				if(!PLAYER_DEAD && !COMPLETE_QUEST)
+				{
+					//translation movement
+					skeletons_pos[i] += (glm::vec3(direction.x, 0.0f, direction.z) * 0.01f);
+				}
+				skel = glm::translate(skel, skeletons_pos[i]);
+				skel = glm::rotate(skel, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+				skel = glm::rotate(skel, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+				if(tab > 3 && tab < 6 && !PLAYER_DEAD && !COMPLETE_QUEST)// upper leg
+		        {
+		        	skel = glm::rotate(skel, walk_animation(0.5f, tab), glm::vec3(1.0, 0.0, 0.0));
+		        }
+				skel = glm::translate(skel, skel_positions[tab]);
+				skel = glm::scale(skel, skel_scales[tab]);
+
+				if(obj_near(skeletons_pos[i], 0.6))
+				{
+					PLAYER_DEAD = true;
+				}
+
+
+				ourShader->setMat4("model", skel);
+
+				glDrawArrays(GL_TRIANGLES, 0, 36);
+			} 
+		}
+	}
 }
